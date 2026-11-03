@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生死转盘 · 联机通路验证</title>
+<style>
+:root{--gold:#e8c26a;--gold-dim:#8d7538;--red:#e5383b;--green:#52b788;--blue:#4d8fd6;--bg:#0a0a0e;--line:rgba(232,194,106,.18);--txt:#e8e6e1;--dim:#8e8a82}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1000px 600px at 50% -10%,#2a1218 0,transparent 60%),var(--bg);color:var(--txt);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;min-height:100vh;padding:20px;display:flex;justify-content:center}
+.wrap{width:100%;max-width:1000px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap}
+h1{font-size:17px;letter-spacing:5px;background:linear-gradient(180deg,#fff3d0,#e8c26a 60%,#a8823a);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600}
+.pill{font-size:12px;padding:5px 13px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--dim)}
+.pill.on{color:var(--green);border-color:rgba(82,183,136,.55)}
+.pill.off{color:var(--red);border-color:rgba(229,56,59,.55)}
+.enter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+input{background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:9px 12px;font-size:13px;font-family:inherit;outline:none}
+input:focus{border-color:var(--gold-dim)}
+#addr{flex:1;min-width:170px}#name{width:120px}#pass{width:110px}
+.btn{background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;border:1px solid #e86a52;border-radius:7px;padding:9px 20px;font-size:13px;letter-spacing:2px;cursor:pointer;font-family:inherit}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:rgba(255,255,255,.05);color:var(--dim);border-color:var(--line);letter-spacing:1px;padding:9px 14px}
+.cols{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+@media(max-width:820px){.cols{grid-template-columns:1fr}}
+.panel{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+h2{font-size:11px;letter-spacing:3px;color:var(--gold-dim);text-transform:uppercase;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.06);font-size:13px}
+.stat:last-child{border-bottom:none}
+.stat b{font-size:16px;font-variant-numeric:tabular-nums}
+.spinbtn{width:100%;padding:14px;margin-top:12px;border-radius:9px;font-size:16px;letter-spacing:5px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;border:1px solid #e86a52}
+.spinbtn:hover:not(:disabled){transform:translateY(-2px)}
+.spinbtn:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.6)}
+.modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.mode{flex:1;min-width:78px;padding:8px 4px;border-radius:7px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--dim);font-size:12px;cursor:pointer;font-family:inherit;text-align:center;line-height:1.45}
+.mode.sel{border-color:var(--gold-dim);color:var(--gold);background:rgba(232,194,106,.1)}
+.mode small{display:block;font-size:10px;opacity:.65;letter-spacing:0}
+.pcard{border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:11px 13px;margin-bottom:9px;background:rgba(0,0,0,.22);transition:.25s}
+.pcard.me{border-color:var(--gold-dim);background:rgba(232,194,106,.07)}
+.pcard.dead{opacity:.45}
+.pcard.out{border-color:rgba(229,56,59,.45);background:rgba(229,56,59,.06)}
+.pcard.turn{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.phead{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.pname{font-size:14px;font-weight:600}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}
+.hpbar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:7px}
+.hpbar i{display:block;height:100%;background:linear-gradient(90deg,#8b1e2d,#e5383b);transition:width .4s}
+.pmeta{display:flex;gap:13px;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.pmeta span b{color:var(--gold)}
+.shoprow{display:flex;gap:8px;flex-wrap:wrap}
+.sbtn{flex:1;min-width:110px;padding:9px 6px;border-radius:7px;border:1px solid var(--gold-dim);background:linear-gradient(180deg,#3a2f14,#221b09);color:var(--gold);font-size:12px;cursor:pointer;font-family:inherit;line-height:1.5}
+.sbtn:hover:not(:disabled){background:linear-gradient(180deg,#5a4a1e,#3a2f14)}
+.sbtn:disabled{opacity:.3;cursor:not-allowed}
+.sbtn small{display:block;font-size:10px;opacity:.7}
+#log{height:210px;overflow-y:auto;font-size:12px;line-height:1.8;color:var(--dim);font-variant-numeric:tabular-nums}
+#log div{padding:1px 0;border-bottom:1px dashed rgba(255,255,255,.04)}
+#log .t{color:#57534a;margin-right:7px}
+.note{font-size:11.5px;color:#5d5952;line-height:1.7;margin-top:10px}
+.turnbar{font-size:12px;padding:8px 10px;border-radius:7px;text-align:center;letter-spacing:1px;margin-bottom:10px;background:rgba(232,194,106,.08);border:1px solid rgba(232,194,106,.25);color:#c8a24a}
+.turnbar.me{background:rgba(82,183,136,.12);border-color:rgba(82,183,136,.45);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>联 机 通 路 验 证</h1>
+    <div class="pill" id="conn">未连接</div>
+  </header>
+
+  <div class="enter">
+    <input id="addr" placeholder="服务器地址（如 100.64.1.2:8080）">
+    <input id="name" placeholder="你的名字">
+    <input id="pass" placeholder="房间码（可选）">
+    <button class="btn" id="joinBtn">进入房间</button>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <h2>房间</h2>
+        <div id="turnbar" class="turnbar">大厅 · 等待房主开局</div>
+        <div class="modes" id="modes"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="startBtn" style="flex:1">开 始 游 戏</button>
+          <button class="btn ghost" id="resetBtn">回大厅</button>
+        </div>
+        <div class="note">只有房主能切换模式与开局。开局后房间不再接纳新玩家 —— 避免中途插队改数值。</div>
+      </div>
+
+      <div class="panel">
+        <h2>我</h2>
+        <div class="stat"><span>生命</span><b id="mHp">— / 7</b></div>
+        <div class="stat"><span>金币</span><b id="mGold" style="color:var(--gold)">—</b></div>
+        <div class="stat"><span>转数</span><b id="mSpins">—</b></div>
+        <div class="stat"><span>扣血概率</span><b id="mDoom">—</b></div>
+        <button class="spinbtn" id="spinBtn" disabled>转 动</button>
+        <div class="note">
+          点击后只发一个 <code>spin</code> 请求，<b>本页不做任何随机计算</b>。
+          结果由服务端掷出后广播回来 —— 这就是「服务端权威」。
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>房间内玩家 <span id="pcount" style="color:#5d5952"></span></h2>
+        <div id="players"></div>
+      </div>
+      <div class="panel">
+        <h2>商场（服务端结算）</h2>
+        <div class="shoprow" id="shop"></div>
+      </div>
+      <div class="panel">
+        <h2>事件流 <span style="color:#5d5952;font-size:10px;letter-spacing:0">由服务端推送</span></h2>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/engine.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const MODE_NAME = { solo: '单人', race: '同场竞速', turn: '轮流共枪' };
+const EV_COLOR = { minus1: '#c9452f', plus1: '#52b788', minus2: '#e5383b', plus2: '#4d8fd6', gold: '#e8c26a' };
+
+let ws = null, myId = null, view = null, joined = false, reconnectTimer = null, lastId = null;
+
+/* ---------- 初始化 ---------- */
+$('addr').value = location.host || 'localhost:8080';
+$('name').value = '玩家' + Math.floor(Math.random() * 90 + 10);
+if (!location.host) log('当前不是通过 http:// 打开的，请先访问 http://服务器IP:8080', '#e5383b');
+if (!window.RREngine) log('engine.js 没加载到（应由服务器提供）', '#e5383b');
+
+/* ---------- 连接 ---------- */
+function setConn(text, cls) {
+  const el = $('conn');
+  el.textContent = text;
+  el.className = 'pill' + (cls ? ' ' + cls : '');
+}
+
+function connect() {
+  const addr = $('addr').value.trim();
+  if (!addr) { alert('请填写服务器地址'); return; }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = proto + '://' + addr;
+
+  clearTimeout(reconnectTimer);
+  setConn('连接中…', '');
+  log('正在连接 ' + url);
+
+  try { ws = new WebSocket(url); }
+  catch (e) { log('地址格式错误：' + e.message, '#e5383b'); setConn('连接失败', 'off'); return; }
+
+  ws.onopen = () => {
+    setConn('已连接', 'on');
+    log('连接成功', '#52b788');
+    send({
+      type: 'join',
+      name: $('name').value.trim() || '无名氏',
+      id: lastId,
+      pass: $('pass').value.trim() || undefined,
+    });
+  };
+  ws.onclose = () => {
+    setConn('已断开', 'off');
+    joined = false;
+    $('spinBtn').disabled = true;
+    log('连接断开，3 秒后自动重连…', '#e5383b');
+    reconnectTimer = setTimeout(connect, 3000);
+  };
+  ws.onerror = () => log('连接出错（检查地址、防火墙、服务是否在跑）', '#e5383b');
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    handle(m);
+  };
+}
+
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+/* ---------- 收消息 ---------- */
+function handle(m) {
+  if (m.type === 'welcome') {
+    myId = m.you; lastId = m.you; joined = true;
+    view = m.view;
+    log('加入成功，你的编号 ' + myId + (m.view.room.hostId === myId ? '（你是房主）' : ''), '#52b788');
+    render();
+    return;
+  }
+  if (m.type === 'sync') {
+    view = m.view;
+    (m.events || []).forEach(ev => narrate(ev));
+    render();
+    return;
+  }
+  if (m.type === 'rejected') {
+    log('服务器拒绝：' + REJECT[m.reason] + (REJECT[m.reason] ? '' : m.reason), '#e5383b');
+    render();
+    return;
+  }
+}
+
+const REJECT = {
+  'bad-room-code': '房间码不对',
+  'game-in-progress': '对局已开始，不能再加入',
+  'not-joined': '你还没加入房间',
+  'not-host': '只有房主能做这个操作',
+  'not-in-lobby': '大厅阶段才能做这个操作',
+  'not-playing': '对局还没开始',
+  'bad-mode': '未知模式',
+  'no-players': '房间里没有人',
+  'not-your-turn': '还没轮到你',
+  'not-in-play': '你已经出局了',
+  'not-enough-gold': '金币不够',
+  'limit-reached': '这个道具已经买满了',
+  'no-such-item': '没有这件商品',
+  'no-potion': '你手上没有药水',
+  'hp-full': '生命已满，不用喝药',
+  'game-over': '对局已经结束了',
+};
+
+/* ---------- 把服务端事件翻译成人话 ---------- */
+function narrate(ev) {
+  const name = id => {
+    const p = view && view.match.players.find(x => x.id === id);
+    return p ? p.name : id;
+  };
+  switch (ev.t) {
+    case 'start':
+      log('赌局开始 · 模式「' + (MODE_NAME[ev.mode] || ev.mode) + '」', '#e8c26a'); break;
+    case 'lobby':
+      log('回到大厅，可以重新配置', '#8e8a82'); break;
+    case 'roll':
+      log(`${name(ev.playerId)} 第 ${ev.spins} 转 → ${ev.label}`, EV_COLOR[ev.key]); break;
+    case 'damage':
+      log(ev.blockedByCharm
+        ? `${name(ev.playerId)} 扣 ${ev.amount} 滴血 · 护符碎裂，生命锁在 1`
+        : `${name(ev.playerId)} 扣 ${ev.amount} 滴血 → 剩余 ${ev.hp}`,
+        ev.blockedByCharm ? '#e8c26a' : '#e5383b'); break;
+    case 'heal':
+      log(ev.overflow
+        ? `${name(ev.playerId)} 加 ${ev.amount} 滴血（已满，溢出）`
+        : `${name(ev.playerId)} 加 ${ev.amount} 滴血 → ${ev.to}`, '#52b788'); break;
+    case 'gold':
+      log(`${name(ev.playerId)} 获得 ${ev.amount} 金币`, '#e8c26a'); break;
+    case 'interest':
+      log(`${name(ev.playerId)} 死神利息：本金 ${fmt(ev.principal)} → +${fmt(ev.amount)} 金`, '#c8a24a'); break;
+    case 'scythe':
+      log(ev.blockedByCharm
+        ? `${name(ev.playerId)} 镰刀挥下 · 护符替你挡下这 1 滴`
+        : `${name(ev.playerId)} 镰刀挥下 · 先扣 1 滴血 → 剩余 ${ev.hp}`,
+        ev.blockedByCharm ? '#e8c26a' : '#e5383b'); break;
+    case 'milestone':
+      log(`【第 ${ev.n} 转】死神降临 · 生命回满，${ev.lost > 0 ? ev.lost + ' 件道具被夺走' : '手上本就没有道具'}`
+        + (ev.scytheArmed ? ' · 此后每转先扣 1 滴血' : ''), '#e8c26a'); break;
+    case 'buy':
+      log(`${name(ev.playerId)} 购买了 ${SHOP_NAME[ev.itemId] || ev.itemId}（−${ev.cost} 金）`, '#e8c26a'); break;
+    case 'rewind':
+      log(`${name(ev.playerId)} 减少转数 ${ev.from} → ${ev.to}（本局剩 ${ev.limit - ev.used} 次）`, '#52b788'); break;
+    case 'potion':
+      log(`${name(ev.playerId)} 使用生命药水 → 生命回满至 ${ev.to}`, '#52b788'); break;
+    case 'death':
+      log(`${name(ev.playerId)} 死 亡` + (ev.cause === 'scythe' ? '（镰刀先一步落下）' : ''),
+        '#e5383b'); break;
+    case 'survived':
+      log(`${name(ev.playerId)} 活着走下了赌桌（${ev.spins} 转）`, '#e8c26a'); break;
+    case 'over': {
+      const who = ev.winnerId ? name(ev.winnerId) + ' 获胜' : '无人胜出';
+      const why = { death: '生命耗尽', doom: '轮盘再无生机', 'last-standing': '最后一个站着的人',
+        'highest-spin': '转数最高', draw: '并列', 'all-dead': '全员出局', 'turn-limit': '达到转数上限' };
+      log(`对局结束 · ${who}（${why[ev.reason] || ev.reason}）`, '#e8c26a');
+      break;
+    }
+    default: break;
+  }
+}
+const SHOP_NAME = { charm: '免死护符', potion: '生命药水', rewind: '减少转数' };
+
+/* ---------- 渲染 ---------- */
+function render() {
+  if (!view) return;
+  const M = view.match, R = view.room;
+  const isHost = R.hostId === myId;
+  const inLobby = R.phase === 'lobby';
+
+  /* 模式按钮 */
+  const mb = $('modes');
+  if (mb.dataset.phase !== R.phase + R.mode + isHost) {
+    mb.dataset.phase = R.phase + R.mode + isHost;
+    mb.innerHTML = '';
+    Object.keys(MODE_NAME).forEach(k => {
+      const b = document.createElement('button');
+      b.className = 'mode' + (R.mode === k ? ' sel' : '');
+      b.innerHTML = MODE_NAME[k] + '<small>' + MODE_DESC[k] + '</small>';
+      b.disabled = !isHost || !inLobby;
+      b.style.cursor = (!isHost || !inLobby) ? 'not-allowed' : 'pointer';
+      b.onclick = () => send({ type: 'setMode', mode: k });
+      mb.appendChild(b);
+    });
+  }
+  $('startBtn').disabled = !isHost || !inLobby || M.players.length < 1;
+  $('resetBtn').disabled = !isHost;
+
+  /* 回合条 */
+  const tb = $('turnbar');
+  if (inLobby) {
+    tb.className = 'turnbar';
+    tb.textContent = '大厅 · 等待房主开局（当前 ' + M.players.length + ' 人）';
+  } else if (M.phase === 'over') {
+    tb.className = 'turnbar';
+    tb.textContent = '对局结束';
+  } else if (M.mode === 'turn') {
+    const mine = M.turnPlayerId === myId;
+    tb.className = 'turnbar' + (mine ? ' me' : '');
+    tb.textContent = mine ? '▶ 轮 到 你 了' : '等待 ' + pname(M.turnPlayerId) + ' 转动';
+  } else {
+    tb.className = 'turnbar';
+    tb.textContent = M.mode === 'race' ? '同场竞速 · 各转各的，先死的出局' : '单人模式';
+  }
+
+  /* 玩家卡片 */
+  const box = $('players');
+  box.innerHTML = '';
+  $('pcount').textContent = '（' + M.players.length + ' 人 · 轮盘读至第 ' + M.k + ' 转）';
+  M.players.forEach(p => {
+    const isMe = p.id === myId;
+    const isTurn = M.mode === 'turn' && M.turnPlayerId === p.id && M.phase === 'playing' && p.alive;
+    const d = document.createElement('div');
+    d.className = 'pcard' + (isMe ? ' me' : '') + (p.alive ? '' : ' dead')
+      + (p.connected ? '' : ' out') + (isTurn ? ' turn' : '');
+    d.innerHTML = `
+      <div class="phead">
+        <span class="pname">${esc(p.name)}${isMe ? ' · 我' : ''}${p.id === R.hostId ? ' · 房主' : ''}</span>
+        <span class="tag">${!p.alive ? '已出局' : (p.finished ? '已通关' : (p.connected ? '存活' : '掉线'))}</span>
+      </div>
+      <div class="hpbar"><i style="width:${Math.max(0, p.hp) / M.rules.maxHp * 100}%"></i></div>
+      <div class="pmeta">
+        <span>生命 <b style="color:${p.hp <= 2 ? '#e5383b' : '#e8e6e1'}">${p.hp}/${M.rules.maxHp}</b></span>
+        <span>金币 <b>${fmt(p.gold)}</b></span>
+        <span>转数 <b>${p.readout}</b></span>
+        <span>护符 <b>${p.charms}</b></span>
+        <span>药水 <b>${p.potions}</b></span>
+        <span>扣血 <b style="color:${p.doom >= 90 ? '#e5383b' : '#8e8a82'}">${p.doom.toFixed(1)}%</b></span>
+      </div>`;
+    box.appendChild(d);
+  });
+
+  /* 我 */
+  const me = M.players.find(p => p.id === myId);
+  if (me) {
+    $('mHp').textContent = me.hp + ' / ' + M.rules.maxHp;
+    $('mHp').style.color = me.hp <= 2 ? '#e5383b' : '#e8e6e1';
+    $('mGold').textContent = fmt(me.gold);
+    $('mSpins').textContent = me.readout;
+    $('mDoom').textContent = me.doom.toFixed(1) + '%';
+    $('mDoom').style.color = me.doom >= 90 ? '#e5383b' : '#e8e6e1';
+
+    const myTurn = M.mode !== 'turn' || M.turnPlayerId === myId;
+    const canAct = joined && M.phase === 'playing' && me.alive && !me.finished && myTurn;
+    $('spinBtn').disabled = !canAct;
+    $('spinBtn').textContent = !joined ? '未 连 接'
+      : M.phase !== 'playing' ? '等 待 开 局'
+      : !me.alive ? '你 已 出 局'
+      : me.finished ? '你 已 通 关'
+      : !myTurn ? '等 待 对 手'
+      : '转 动';
+  }
+
+  /* 商场 */
+  const sb = $('shop');
+  if (sb.dataset.mode !== M.mode || sb.dataset.me !== myId) {
+    sb.dataset.mode = M.mode; sb.dataset.me = myId;
+    sb.innerHTML = '';
+    M.shop.forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'sbtn';
+      b.dataset.item = it.id;
+      b.innerHTML = it.name + '<small>' + it.price + ' 金' + (it.limit ? ' · 限 ' + it.limit + ' 次' : '') + '</small>';
+      b.onclick = () => send({ type: 'buy', itemId: it.id });
+      sb.appendChild(b);
+    });
+    const pb = document.createElement('button');
+    pb.className = 'sbtn';
+    pb.dataset.item = 'usePotion';
+    pb.innerHTML = '使用药水<small>回满生命</small>';
+    pb.onclick = () => send({ type: 'usePotion' });
+    sb.appendChild(pb);
+  }
+  if (me) {
+    [...sb.querySelectorAll('.sbtn')].forEach(b => {
+      const it = M.shop.find(s => s.id === b.dataset.item);
+      const cost = it ? it.price : 0;
+      const soldOut = it && it.limit != null && me.rewinds >= it.limit;
+      b.disabled = !joined || M.phase !== 'playing' || !me.alive || me.finished
+        || (it ? (me.gold < cost || soldOut) : me.potions <= 0 || me.hp >= M.rules.maxHp);
+    });
+  }
+}
+const MODE_DESC = { solo: '自己跑', race: '各自转盘', turn: '共享轮盘' };
+
+function pname(id) {
+  const p = view && view.match.players.find(x => x.id === id);
+  return p ? p.name : id;
+}
+function fmt(n) {
+  if (n < 10000) return n;
+  if (n < 100000000) return (n / 10000).toFixed(n < 100000 ? 1 : 0) + '万';
+  return (n / 100000000).toFixed(1) + '亿';
+}
+function esc(s) {
+  return String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+}
+
+let tick = 0;
+function log(msg, color) {
+  const el = $('log');
+  const d = document.createElement('div');
+  d.innerHTML = `<span class="t">${String(++tick).padStart(3, '0')}</span><span style="color:${color || '#a8a49c'}">${esc(msg)}</span>`;
+  el.insertBefore(d, el.firstChild);
+}
+
+/* ---------- 交互 ---------- */
+$('joinBtn').onclick = () => {
+  if (ws && ws.readyState === 1) { ws.close(); return; }
+  connect();
+};
+$('startBtn').onclick = () => send({ type: 'start' });
+$('resetBtn').onclick = () => { if (confirm('回到大厅？当前对局将作废。')) send({ type: 'reset' }); };
+$('spinBtn').onclick = () => {
+  $('spinBtn').disabled = true;    // 先禁用，等服务端回消息
+  send({ type: 'spin' });          // 只发请求，不做任何本地结算
+};
+['name', 'addr', 'pass'].forEach(id => {
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
+});
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    if (!$('spinBtn').disabled) $('spinBtn').click();
+  }
+});
+
+connect();
+</script>
+</body>
+</html>
