@@ -33,7 +33,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # 必须用 Node 22：discovery-test.js 与 client-mp-test.js 依赖
+          # Node 22 才提供的全局 WebSocket（Node 20 无此全局对象）
+          node-version: '22'
 
       - name: 运行 ${{ matrix.script }}
         run: node ${{ matrix.script }}

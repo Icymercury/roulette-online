@@ -247,6 +247,35 @@ function secureRng() {
   return crypto.randomBytes(4).readUInt32BE(0) / 4294967296;
 }
 
+/* ------------------------------------------------------------
+ * 确定性随机源（仅测试用）
+ * ------------------------------------------------------------
+ * 设了 RR_SEED 环境变量就用它替代 crypto 随机，序列可复现。
+ * 不设时行为与从前完全一致 —— 生产环境永远走 crypto。
+ *
+ * 为什么需要它：端到端测试里有「转若干次攒够 150 金币」这类断言，
+ * 而死神追猎是固定概率 [30,30,10,10,20]（20% 掉血、20% 掉金币），
+ * 转到人没了就 game-over —— 断言能否通过取决于**运气**，
+ * 于是同一个提交在本地过、在 CI 上红（flaky test）。
+ * 固定种子后，掷骰序列完全确定，断言永远成立。
+ */
+let _seededRng = null;
+function initSeededRng() {
+  const raw = process.env.RR_SEED;
+  if (raw == null || raw === '') return false;
+  let a = (Number(raw) >>> 0) || 1;
+  _seededRng = function () {
+    /* mulberry32：32 位状态、周期 2^32、分布均匀，够测试用 */
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return true;
+}
+const SEEDED = initSeededRng();
+function authorityRng() { return SEEDED ? _seededRng : secureRng; }
+
 function newToken() { return crypto.randomBytes(16).toString('hex'); }
 
 /* 当前座位的「身份证」列表。重建对局时必须原样带上 token 和在线状态，
@@ -1479,7 +1508,7 @@ function onMessage(client, text) {
   else return;
 
   // ★ 服务端权威：唯一产生随机数的地方；时间也以服务端为准
-  const out = Engine.applyAction(room.match, action, secureRng, Date.now());
+  const out = Engine.applyAction(room.match, action, authorityRng(), Date.now());
 
   if (out.events.length === 1 && out.events[0].t === 'rejected') {
     sendJSON(client, { type: 'rejected', reason: out.events[0].reason, itemId: msg.itemId, targetId: msg.targetId });

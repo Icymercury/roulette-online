@@ -22,7 +22,11 @@ const PORT = 8123;
 const RUN_TAG = process.pid + '-' + Date.now().toString(36);
 const STATE = path.join(os.tmpdir(), 'rr-test-state-' + RUN_TAG + '.json');
 /* V16.1：默认关掉服务端的默认房间码（584520）—— 这套测试全程假设「无码直接进房」 */
-const SRV_ENV = Object.assign({}, process.env, { RR_STATE: STATE, RR_ROOM_CODE: '' });
+/* RR_SEED：固定服务端掷骰序列，让「转若干次攒够 150 金币」这类
+   依赖概率结果的断言可复现 —— 否则同一提交在本地过、在 CI 上红。 */
+const SRV_ENV = Object.assign({}, process.env, {
+  RR_STATE: STATE, RR_ROOM_CODE: '', RR_SEED: '20260930',
+});
 
 function spawnServer(port) {
   return spawn(process.execPath, [__dirname + '/server.js', String(port)], {
