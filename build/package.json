@@ -1,0 +1,8 @@
+{
+  "name": "rr-build",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "postject": "^1.0.0-alpha.6"
+  }
+}
