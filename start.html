@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>生死转盘</title>
+<style>
+  /* V16 启动页 —— 刻意写成跟游戏内页不一样的一套视觉。
+     它不引 engine.js、不发任何连接，所以断网 / 没开服务端时也能秒开。 */
+  :root{
+    --bg:#100e0b; --bg2:#1a1611; --line:#3a3128;
+    --gold:#e8c26a; --gold-dim:#8d7437;
+    --txt:#efe6d4; --txt-dim:#9c9186;
+    --red:#c9452f; --green:#52b788;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #241d15 0%, var(--bg) 60%),
+      var(--bg);
+    color:var(--txt);
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 18px 26px; overflow-x:hidden;
+  }
+
+  /* 顶部转盘：纯装饰，画出来只是为了让首屏不像一张表单 */
+  .wheel-wrap{width:170px;height:170px;margin:6px 0 4px;position:relative;flex:0 0 auto}
+  .wheel-wrap svg{width:100%;height:100%;display:block}
+  .pointer{
+    position:absolute;left:50%;top:-4px;transform:translateX(-50%);
+    width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+    border-top:16px solid var(--gold);filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));
+  }
+
+  h1{
+    margin:2px 0 2px; font-size:27px; letter-spacing:.32em; text-indent:.32em;
+    color:var(--gold); font-weight:700; text-shadow:0 2px 10px rgba(232,194,106,.18);
+  }
+  .sub{margin:0 0 20px;color:var(--txt-dim);font-size:13px;letter-spacing:.05em}
+
+  .card{
+    width:100%; max-width:420px; display:block; text-decoration:none; color:inherit;
+    background:linear-gradient(160deg,#221c15,#181410);
+    border:1px solid var(--line); border-radius:16px;
+    padding:16px 16px 15px; margin-bottom:13px;
+    display:flex; align-items:center; gap:14px;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  .card:active{transform:scale(.985)}
+  .card:hover{border-color:var(--gold-dim);box-shadow:0 6px 22px rgba(0,0,0,.45)}
+  .card .ico{
+    flex:0 0 52px;height:52px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    font-size:26px;background:#0f0c09;border:1px solid var(--line);
+  }
+  .card .t{flex:1;min-width:0}
+  .card .nm{font-size:17px;font-weight:700;letter-spacing:.04em}
+  .card .nm small{font-weight:400;font-size:11px;color:var(--txt-dim);margin-left:7px;letter-spacing:0}
+  .card .ds{font-size:12px;line-height:1.6;color:var(--txt-dim);margin-top:4px}
+  .card .go{flex:0 0 auto;color:var(--gold);font-size:13px;letter-spacing:.1em}
+  #btnSolo .ico{color:var(--green)}
+  #btnOnline .ico{color:var(--red)}
+
+  .hint{
+    width:100%;max-width:420px;margin-top:12px;padding:12px 14px;
+    border:1px dashed var(--line);border-radius:12px;
+    font-size:12px;line-height:1.75;color:var(--txt-dim);background:rgba(255,255,255,.015);
+  }
+  .hint b{color:var(--gold);font-weight:600}
+  .foot{margin-top:auto;padding-top:18px;font-size:11px;color:#6b635a;letter-spacing:.08em}
+</style>
+</head>
+<body>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <g id="seg">
+          <path d="M60 60 L60 6 A54 54 0 0 1 111.4 89.4 Z" fill="#c9452f"/>
+        </g>
+      </defs>
+      <g fill="none" stroke="#100e0b" stroke-width="1.5">
+        <path d="M60 60 L60 6 A54 54 0 0 1 111.4 89.4 Z" fill="#c9452f"/>
+        <path d="M60 60 L111.4 89.4 A54 54 0 0 1 8.6 89.4 Z" fill="#52b788"/>
+        <path d="M60 60 L8.6 89.4 A54 54 0 0 1 60 6 Z" fill="#e8c26a"/>
+        <path d="M60 60 L60 6 A54 54 0 0 1 111.4 89.4 Z" fill="#e5383b" opacity=".55" transform="rotate(72 60 60)"/>
+        <path d="M60 60 L60 6 A54 54 0 0 1 111.4 89.4 Z" fill="#4d8fd6" opacity=".55" transform="rotate(144 60 60)"/>
+      </g>
+      <circle cx="60" cy="60" r="54" fill="none" stroke="#e8c26a" stroke-width="2" opacity=".65"/>
+      <circle cx="60" cy="60" r="15" fill="#100e0b" stroke="#e8c26a" stroke-width="1.5" opacity=".8"/>
+      <text x="60" y="64" text-anchor="middle" font-size="12" fill="#e8c26a" font-family="sans-serif">命运</text>
+    </svg>
+  </div>
+
+  <h1>生 死 转 盘</h1>
+  <p class="sub">选一种玩法</p>
+
+  <a class="card" id="btnSolo" href="roulette-wheel.html">
+    <div class="ico">🎯</div>
+    <div class="t">
+      <div class="nm">单人游戏 <small>不用连服务器</small></div>
+      <div class="ds">死亡轮盘 · 本地开跑，7 滴血，走到第 100 转绝境即通关。</div>
+    </div>
+    <div class="go">进 去</div>
+  </a>
+
+  <a class="card" id="btnOnline" href="client.html">
+    <div class="ico">👥</div>
+    <div class="t">
+      <div class="nm">联机游戏 <small>要房主开服务端</small></div>
+      <div class="ds">对赌轮盘 / 死神追猎 · 同一个 WiFi 直接搜到，异地的朋友填网址进。</div>
+    </div>
+    <div class="go">进 去</div>
+  </a>
+
+  <div class="hint">
+    <b>要联机：</b>房主先在电脑上打开「生死转盘-服务端」，它会弹出一个<b>房主管理台</b>（只有开服务的那台电脑能打开）——
+    穿透网址、房间码都在那里面设。<br>
+    手机 / 电脑玩家打开后点上面「联机游戏」就行。
+  </div>
+
+  <div class="foot">V16 · 规则由 engine.js 提供</div>
+
+</body>
+</html>

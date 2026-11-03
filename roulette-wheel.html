@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>死亡轮盘 · 生死转盘</title>
+<style>
+:root{
+  --gold:#e8c26a;
+  --gold-dim:#8d7538;
+  --red:#e5383b;
+  --green:#52b788;
+  --blue:#4d8fd6;
+  --bg:#0a0a0e;
+  --card:rgba(255,255,255,.045);
+  --line:rgba(232,194,106,.18);
+  --txt:#e8e6e1;
+  --txt-dim:#8e8a82;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #2a1218 0%, transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, #141620 0%, transparent 60%),
+    var(--bg);
+  color:var(--txt);
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:18px 16px 40px;
+  overflow-x:hidden;
+}
+.app{width:100%;max-width:1180px}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{
+  font-size:22px;letter-spacing:6px;font-weight:600;
+  background:linear-gradient(180deg,#fff3d0,#e8c26a 60%,#a8823a);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hdr-tools{display:flex;gap:8px}
+.mini-btn{
+  background:var(--card);border:1px solid var(--line);color:var(--txt-dim);
+  padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;letter-spacing:1px;
+  transition:.2s;
+}
+.mini-btn:hover{color:var(--gold);border-color:var(--gold-dim)}
+
+/* layout */
+main{display:grid;grid-template-columns:280px 1fr 300px;gap:16px;align-items:start}
+@media(max-width:1020px){main{grid-template-columns:1fr}}
+
+.panel{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;
+  backdrop-filter:blur(6px);
+}
+.panel + .panel{margin-top:14px}
+.panel h2{
+  font-size:12px;letter-spacing:3px;color:var(--gold-dim);
+  text-transform:uppercase;margin-bottom:12px;font-weight:600;
+}
+
+/* hearts */
+.hearts{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.heart{width:20px;height:20px;transition:.3s}
+.heart.empty{opacity:.2;filter:grayscale(1)}
+
+/* ============ 顶部血量条（V17）============
+   单人模式里「还剩几滴血」是全程唯一需要一直盯着的数字 ——
+   把它钉在轮盘正上方（跟联机页同一个位置，肌肉记忆不用分两套），
+   左栏只留金币 / 道具 / 记录这些不必实时看的东西。 */
+.hpstrip{width:100%;display:flex;justify-content:center;margin-bottom:14px}
+.hpstrip .hpcell{
+  flex:1 1 320px;max-width:560px;
+  border:1px solid var(--line);border-radius:12px;padding:11px 14px 10px;
+  background:rgba(0,0,0,.28);
+}
+.hpstrip .hpcell.me{border-color:var(--gold-dim);background:rgba(232,194,106,.07)}
+.hpstrip .hp-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:7px}
+.hpstrip .hp-nm{font-size:12.5px;letter-spacing:2px;color:var(--txt-dim)}
+.hpstrip .hp-num{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.hpstrip .hp-num.danger{color:var(--red)}
+.hpstrip .hearts{margin:0 0 8px}
+.hpstrip .hp-track{height:12px;border-radius:6px;background:rgba(255,255,255,.09);overflow:hidden}
+.hpstrip .hp-track i{display:block;height:100%;border-radius:6px;transition:width .45s;
+  background:linear-gradient(90deg,#8b1e2d,#e5383b)}
+.hpstrip .hpcell.warn .hp-track i{background:linear-gradient(90deg,#b3341f,#ff7a45)}
+.hpstrip .hpcell.ok  .hp-track i{background:linear-gradient(90deg,#256b4e,#52b788)}
+.hpstrip .hp-sub{font-size:11px;color:var(--txt-dim);margin-top:6px;letter-spacing:.5px}
+.hpstrip .hpcell.warn .hp-sub{color:var(--red)}
+
+/* phase hint */
+.phase{
+  font-size:11.5px;padding:7px 9px;border-radius:6px;margin:8px 0 10px;text-align:center;letter-spacing:1px;
+  background:rgba(232,194,106,.08);border:1px solid rgba(232,194,106,.25);color:#c8a24a;line-height:1.5;
+}
+.phase.danger{
+  background:rgba(229,56,59,.12);border-color:rgba(229,56,59,.45);color:#e5383b;
+  animation:pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* stat rows */
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+.stat:last-child{border-bottom:none}
+.stat .k{font-size:12px;color:var(--txt-dim);letter-spacing:1px}
+.stat .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.v.gold{color:var(--gold)}
+.v.danger{color:var(--red)}
+
+/* inventory */
+.item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:8px;margin-bottom:8px;
+  background:rgba(0,0,0,.2);
+}
+.item .nm{font-size:13px}
+.item .ct{font-size:12px;color:var(--txt-dim)}
+.use-btn{
+  background:linear-gradient(180deg,#3a2f14,#241d0c);border:1px solid var(--gold-dim);
+  color:var(--gold);padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;transition:.2s;
+}
+.use-btn:hover:not(:disabled){background:linear-gradient(180deg,#5a4a1e,#3a2f14)}
+.use-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* wheel */
+.wheel-area{display:flex;flex-direction:column;align-items:center;gap:14px}
+.wheel-wrap{position:relative;width:380px;height:380px;max-width:88vw;max-height:88vw}
+.pointer{
+  position:absolute;top:-4px;left:50%;transform:translateX(-50%);z-index:5;
+  width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;
+  border-top:30px solid var(--gold);
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.8));
+}
+.wheel{
+  width:100%;height:100%;border-radius:50%;
+  transition:transform 4.3s cubic-bezier(.13,.72,.03,1);
+  filter:drop-shadow(0 12px 40px rgba(0,0,0,.7));
+}
+.ring{
+  position:absolute;inset:-14px;border-radius:50%;
+  border:3px solid var(--gold-dim);
+  box-shadow:0 0 0 6px rgba(0,0,0,.5), inset 0 0 20px rgba(0,0,0,.6);
+  pointer-events:none;
+}
+.bulb{position:absolute;width:9px;height:9px;border-radius:50%;background:#3a3226;box-shadow:0 0 6px rgba(0,0,0,.6);transition:.1s}
+.bulb.on{background:#ffe9a8;box-shadow:0 0 12px #ffd166}
+
+/* result banner */
+.result{
+  min-height:52px;display:flex;align-items:center;justify-content:center;
+  font-size:19px;letter-spacing:2px;font-weight:600;text-align:center;
+  padding:8px 16px;border-radius:10px;width:100%;
+  border:1px solid transparent;transition:.3s;
+}
+.result.idle{color:var(--txt-dim);font-size:13px;letter-spacing:3px}
+.result.show{animation:pop .45s ease}
+@keyframes pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+
+/* spin button */
+.spin-btn{
+  width:230px;padding:15px 0;border-radius:10px;cursor:pointer;
+  font-size:17px;letter-spacing:5px;font-weight:700;
+  background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;
+  border:1px solid #e86a52;
+  box-shadow:0 6px 24px rgba(200,50,40,.35);
+  transition:.15s;
+}
+.spin-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 30px rgba(220,60,45,.5)}
+.spin-btn:active:not(:disabled){transform:translateY(1px)}
+.spin-btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.6)}
+.hint{font-size:11px;color:#5d5952;letter-spacing:1px}
+
+/* shop */
+.shop-item{
+  border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:11px;margin-bottom:10px;
+  background:rgba(0,0,0,.22);transition:.2s;
+}
+.shop-item:hover{border-color:var(--gold-dim)}
+.shop-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.shop-name{font-size:14px;font-weight:600}
+.shop-price{font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums}
+.shop-desc{font-size:11.5px;color:var(--txt-dim);line-height:1.55;margin-bottom:8px}
+.buy-btn{
+  width:100%;padding:7px;border-radius:6px;cursor:pointer;font-size:12.5px;letter-spacing:1px;
+  background:linear-gradient(180deg,#3a2f14,#221b09);border:1px solid var(--gold-dim);color:var(--gold);
+  transition:.2s;
+}
+.buy-btn:hover:not(:disabled){background:linear-gradient(180deg,#5c4a1f,#3a2f14)}
+.buy-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* probability bars */
+.prob-row{margin-bottom:9px}
+.prob-head{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px}
+.prob-head .pv{font-variant-numeric:tabular-nums;font-weight:600}
+.bar{height:7px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+.doom-box{
+  margin-top:10px;padding:9px;border-radius:8px;background:rgba(229,56,59,.1);
+  border:1px solid rgba(229,56,59,.35);font-size:12px;text-align:center;
+}
+.doom-box b{color:var(--red);font-variant-numeric:tabular-nums}
+
+/* log */
+.log-panel{margin-top:16px}
+#log{
+  height:130px;overflow-y:auto;font-size:12px;line-height:1.85;color:var(--txt-dim);
+  font-variant-numeric:tabular-nums;
+}
+#log div{padding:1px 0;border-bottom:1px dashed rgba(255,255,255,.04)}
+#log .t{color:#57534a;margin-right:6px}
+#log::-webkit-scrollbar{width:5px}
+#log::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:3px}
+
+/* herald — 死神降临 */
+.herald{
+  position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(circle at 50% 45%, rgba(70,12,18,.97), rgba(2,2,4,.985));
+}
+.herald.show{display:flex;animation:fade .35s ease}
+.herald-in{text-align:center;max-width:560px}
+.herald .scythe{
+  font-size:60px;line-height:1;margin-bottom:16px;display:block;
+  animation:swing .9s cubic-bezier(.2,.9,.2,1);
+  filter:drop-shadow(0 0 24px rgba(229,56,59,.6));
+}
+@keyframes swing{
+  0%{transform:rotate(-55deg) scale(.35);opacity:0}
+  55%{transform:rotate(10deg) scale(1.2);opacity:1}
+  100%{transform:rotate(0) scale(1);opacity:1}
+}
+.herald .line{
+  font-size:25px;letter-spacing:4px;font-weight:700;line-height:1.7;color:#e8c26a;
+  text-shadow:0 0 34px rgba(232,194,106,.45);
+}
+.herald .desc{margin-top:16px;font-size:13px;color:#a8a49c;line-height:2}
+.herald .desc b{color:#e5383b}
+
+/* overlay */
+.overlay{
+  position:fixed;inset:0;background:rgba(4,4,7,.93);z-index:50;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(4px);
+}
+.overlay.show{display:flex;animation:fade .5s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{
+  max-width:520px;width:100%;background:linear-gradient(180deg,#15121a,#0c0b10);
+  border:1px solid var(--gold-dim);border-radius:14px;padding:28px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);
+}
+.modal.dead{border-color:#7a1f22;box-shadow:0 20px 60px rgba(160,20,20,.35)}
+.modal .big{font-size:34px;letter-spacing:8px;font-weight:700;margin-bottom:6px}
+.modal .big.d{color:var(--red);text-shadow:0 0 30px rgba(229,56,59,.5)}
+.modal .big.w{color:var(--gold);text-shadow:0 0 30px rgba(232,194,106,.5)}
+.modal .sub{font-size:13px;color:var(--txt-dim);margin-bottom:20px;letter-spacing:2px}
+.grade{
+  display:inline-block;padding:6px 18px;border-radius:20px;font-size:13px;letter-spacing:3px;
+  background:rgba(232,194,106,.12);border:1px solid var(--gold-dim);color:var(--gold);margin-bottom:18px;
+}
+.tally{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;margin-bottom:20px}
+.tally div{
+  display:flex;justify-content:space-between;padding:7px 11px;border-radius:6px;
+  background:rgba(255,255,255,.04);font-size:12.5px;
+}
+.tally span{color:var(--txt-dim)}
+.tally b{font-variant-numeric:tabular-nums}
+.restart{
+  padding:12px 40px;border-radius:8px;cursor:pointer;font-size:15px;letter-spacing:4px;
+  background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;border:1px solid #e86a52;
+}
+.restart:hover{transform:translateY(-2px)}
+
+/* rules */
+.rules-body{text-align:left;font-size:13px;line-height:1.9;color:#c9c5bd}
+.rules-body h3{font-size:12px;color:var(--gold);letter-spacing:2px;margin:14px 0 6px}
+.rules-body h3:first-child{margin-top:0}
+.rules-body table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.rules-body td{padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+.rules-body td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.warn{color:var(--gold);background:rgba(232,194,106,.08);padding:9px;border-radius:6px;border-left:2px solid var(--gold-dim);font-size:12px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>死 亡 轮 盘</h1>
+    <div class="hdr-tools">
+      <!-- V16：回启动页（选单人 / 联机那一屏）。
+           这个模式从头到尾连不上任何服务端 —— 它就跑在本地。 -->
+      <a class="mini-btn" id="btnBack" href="start.html">← 启动页</a>
+      <button class="mini-btn" id="btnRules">规则</button>
+      <button class="mini-btn" id="btnSound">音效：开</button>
+      <button class="mini-btn" id="btnReset">重开</button>
+    </div>
+  </header>
+
+  <!-- V17：血量（心 + 数字 + 条）钉在这里，跟轮盘同一屏第一眼的位置。 -->
+  <div class="hpstrip">
+    <div class="hpcell me" id="hpCell">
+      <div class="hp-top">
+        <span class="hp-nm">剩 余 生 命</span>
+        <span class="hp-num" id="hpTxt">7 / 7</span>
+      </div>
+      <div class="hearts" id="hearts"></div>
+      <div class="hp-track"><i id="hpFill" style="width:100%"></i></div>
+      <div class="hp-sub" id="hpSub">尚未开始</div>
+    </div>
+  </div>
+
+  <main>
+    <!-- LEFT -->
+    <div>
+      <div class="panel">
+        <h2>状态</h2>
+        <div class="phase" id="phase"></div>
+        <div class="stat"><span class="k">金币 <span id="itrHint" style="color:#a8863a"></span></span><span class="v gold" id="goldTxt">0</span></div>
+        <div class="stat"><span class="k">转数</span><span class="v" id="spinTxt">0</span></div>
+        <div class="stat"><span class="k">最高记录</span><span class="v" id="bestTxt">0</span></div>
+      </div>
+      <div class="panel">
+        <h2>道具</h2>
+        <div class="item">
+          <div><div class="nm">🛡 免死护符</div><div class="ct">自动抵御一次死亡</div></div>
+          <div style="text-align:right"><div class="v" id="charmTxt">0</div></div>
+        </div>
+        <div class="item">
+          <div><div class="nm">🧪 生命药水</div><div class="ct">恢复血量至上限</div></div>
+          <div style="text-align:right">
+            <div class="v" id="potionTxt" style="font-size:14px">0</div>
+            <button class="use-btn" id="usePotion" style="margin-top:4px">使用</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel log-panel">
+        <h2>记录</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="wheel-area">
+      <div class="wheel-wrap">
+        <div class="pointer"></div>
+        <div class="ring" id="ring"></div>
+        <svg class="wheel" id="wheel" viewBox="0 0 400 400"></svg>
+      </div>
+      <div class="result idle" id="result">等待命运裁决</div>
+      <button class="spin-btn" id="spinBtn">转 动</button>
+      <div class="hint">空格键也可以转动 · 最多 100 转</div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="panel">
+        <h2>概率分布</h2>
+        <div id="probs"></div>
+        <div class="doom-box">扣 1 血 + 扣 2 血 = <b id="doomTxt">40.0%</b><br>
+          <span style="color:#8e8a82;font-size:11px">达到 100% 时轮盘再无生机</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>商场</h2>
+        <div id="shop"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- herald -->
+<div class="herald" id="herald">
+  <div class="herald-in">
+    <span class="scythe">🗡</span>
+    <div class="line" id="heraldLine"></div>
+    <div class="desc" id="heraldDesc"></div>
+  </div>
+</div>
+
+<!-- end overlay -->
+<div class="overlay" id="endOverlay">
+  <div class="modal" id="endModal">
+    <div class="big" id="endTitle">终 局</div>
+    <div class="sub" id="endSub"></div>
+    <div class="grade" id="endGrade"></div>
+    <div class="tally" id="endTally"></div>
+    <button class="restart" id="restartBtn">再 来 一 局</button>
+  </div>
+</div>
+
+<!-- rules overlay -->
+<div class="overlay" id="ruleOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:24px">规 则</div>
+    <div class="sub">死亡轮盘 · 单人模式（本地运行，不联网）</div>
+    <div class="rules-body">
+      <h3>基础</h3>
+      生命上限 7 滴，初始 7 滴。血量归 0 即死亡。转盘共 5 个事件，初始概率 30 / 30 / 10 / 10 / 20。
+      <h3>每转动一次，概率永久变化</h3>
+      <table>
+        <tr><td>扣 1 滴血</td><td style="color:#c9452f">30% &nbsp;+0.4%</td></tr>
+        <tr><td>加 1 滴血</td><td style="color:#52b788">30% &nbsp;−0.3%</td></tr>
+        <tr><td>扣 2 滴血</td><td style="color:#e5383b">10% &nbsp;+0.2%</td></tr>
+        <tr><td>加 2 滴血</td><td style="color:#4d8fd6">10% &nbsp;−0.1%</td></tr>
+        <tr><td>50 金币</td><td style="color:#e8c26a">20% &nbsp;−0.2%</td></tr>
+      </table>
+      <div class="warn" style="margin-top:10px">
+        增量按初始权重<b>等比</b>分配（扣血端 +0.4 / +0.2，回血与金币端 −0.3 / −0.1 / −0.2），
+        每轮净变化恰好为 0，任意转数概率总和恒为 100%。
+        第 100 转时三条正面线<b>同时</b>归零、扣 1 血 70% + 扣 2 血 30% = 100%，
+        正好命中第二条结束条件，不需要额外的截断修正。
+      </div>
+      <h3>死神的两次造访</h3>
+      <b style="color:#e8c26a">第 31 转</b>：「哦，你的运气挺不错的！」生命补满，但<b>所有未使用的道具被夺走</b>。<br>
+      <b style="color:#e5383b">第 71 转</b>：「没想到你运气这么好，但是接下来就没那么容易了！」生命补满 + 道具清空，
+      并且<b>此后每一转，转盘转动前先扣 1 滴血</b>——血量为 1 时转动即死，除非有护符。<br>
+      <span style="color:#8e8a82;font-size:12px">
+        两次赠礼每局各只有一次；用「减少转数」把转数压回节点之前，也不会再触发第二次。
+        所以 31 转前别囤太多道具，71 转后则必须靠利息把药水供起来。
+      </span>
+      <h3>结束条件</h3>
+      ① 血量清零 —— 死亡<br>
+      ② 扣 1 血 + 扣 2 血概率 = 100%（第 100 转）—— 轮盘再无生机
+      <h3>商场</h3>
+      免死护符 100 金 · 受到致命伤时自动碎裂，生命锁在 1 滴，可叠加<br>
+      生命药水 300 金 · 立刻恢复至上限 7 滴（原 150，死神挥镰砍了一半的药）<br>
+      减少转数 200 金 · 转数 −5，概率同步回退（每局限 3 次，否则利息滚起来后可无限回退，赌局永不结束）
+      <h3>死神利息</h3>
+      <div class="warn" style="border-left-color:#c8a24a;color:#e8c26a;background:rgba(232,194,106,.06)">
+        「死神厌烦生命的急速流逝，为各位赌徒带来了利息。」<br>
+        每次转动结算后，你每持有 <b>10 金</b>就额外获得 <b>1 金</b>（向下取整）。
+        这是<b>复利</b>——每转 10% 的指数增长，前期涓流，后期雪崩。<br>
+        <b>但只认转动前的本金</b>：本轮刚转出的 50 金不生息，要等下一转才计入本金。
+      </div>
+      <h3>经济提示</h3>
+      转盘本身的金币产出随转数递减（第 100 转时为 0），但利息会把它重新放大：
+      金币越多，每转白拿的越多。攒住钱滚利息，还是立刻换成护符续命，是本局的核心抉择。
+    </div>
+    <button class="restart" id="closeRules" style="margin-top:20px">明 白 了</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+/* ============================================================
+   死亡轮盘 · 客户端（本地模式，不走服务端）
+   ------------------------------------------------------------
+   · 规则全部来自 engine.js —— 与「对赌轮盘 / 死神追猎」共用同一份，
+     所以先把 engine.js 引进来，本文件只剩「表现」。
+   · 逻辑与动画彻底解耦：先让引擎判定，再播动画。
+     动画时长不参与任何计算，将来接服务端也不会因为网络抖动打散时序。
+   · 单人局在浏览器里本地跑，一次网络请求都不发。
+   ============================================================ */
+
+if (typeof RREngine === 'undefined') {
+  document.body.innerHTML =
+    '<div style="padding:40px;font:15px/1.9 sans-serif;color:#e8e6e1;background:#0c0b10;min-height:100vh">' +
+    '<h2 style="color:#e8c26a">engine.js 没能加载</h2>' +
+    '<p>死亡轮盘是本地模式，规则来自同目录下的 <code>engine.js</code>。</p>' +
+    '<p>· 直接用浏览器打开本文件：请确认 <code>engine.js</code> 就在同一个目录里<br>' +
+    '· 通过服务器访问：请确认服务器能提供 <code>/engine.js</code></p></div>';
+  throw new Error('RREngine 未加载');
+}
+
+const ENGINE = RREngine;
+const MODE = 'solo';
+const MODE_RULES = ENGINE.preset(MODE);   // 死亡轮盘：7 血 / 100 转绝境 / 31 与 71 两个节点
+const MAX_HP = MODE_RULES.hpMax;
+const MAX_SPIN = MODE_RULES.doomAt;
+
+/* 盘面配色与文案（纯外观），顺序由引擎的事件表决定，不可自己排 */
+const WHEEL_STYLE = {
+  minus1: { color:'#8b1e2d', txt:'扣 1 滴血' },
+  plus1:  { color:'#256b4e', txt:'加 1 滴血' },
+  minus2: { color:'#101014', txt:'扣 2 滴血' },
+  plus2:  { color:'#1d4a7a', txt:'加 2 滴血' },
+  gold:   { color:'#9c6f14', txt:'50 金币' },
+};
+const EVENTS = ENGINE.EVENTS.map(function (e) {
+  const st = WHEEL_STYLE[e.key];
+  return { key:e.key, name:e.label, color:st.color, txt:st.txt };
+});
+
+/* 商场文案（价格与限购次数一律从引擎取，不在这里写死） */
+const SHOP_DESC = {
+  charm:  '致命伤自动触发：免疫一次死亡，并将生命锁在 1 滴，可叠加。',
+  potion: '立刻把血量恢复至上限。',
+  rewind: '转数 −5，概率分布同步回退，死神退场 5 步。每局限 3 次。',
+};
+
+/* 引擎拒绝购买时的中文说法 */
+const REJECT_TEXT = {
+  'not-enough-gold': '金币不够',
+  'limit-reached': '这件道具已经买满了',
+  'no-such-item': '没有这件道具',
+  'item-not-available': '本模式买不到这件道具',
+  'not-in-play': '你不在局中',
+  'no-potion': '没有药水',
+  'hp-full': '血量已满',
+  'game-over': '本局已经结束',
+};
+
+/* 大数字缩写：利息是复利，后期金币会滚到六位数 */
+function fmtGold(n){
+  if(n < 10000) return String(n);
+  if(n < 100000000) return (n/10000).toFixed(n < 100000 ? 1 : 0) + '万';
+  return (n/100000000).toFixed(1) + '亿';
+}
+
+/* ============ 状态 ============ */
+/* M 是引擎对局（唯一事实来源）；S 是从 M 派生的只读快照，只给渲染用。
+   客户端不自己算任何规则 —— 血量、金币、概率、节点全从引擎读。 */
+let M = null;
+let S = null;
+let pending = null;   // 动画挂起的事件：判定已完成，等演出放完再播报
+
+function syncS(){
+  const p = M.players['1'];
+  S = {
+    hp:p.hp, gold:p.gold, spins:p.spins, charms:p.charms, potions:p.potions,
+    spent:p.spent, earned:p.earned, interest:p.interest, charmUsed:p.charmUsed, rewinds:p.rewinds,
+    ended: M.phase !== 'playing', spinning:false,
+    ms31:p.ms31, ms71:p.ms71,
+    tally:{ minus1:p.tally.minus1, plus1:p.tally.plus1, minus2:p.tally.minus2, plus2:p.tally.plus2, gold:p.tally.gold },
+  };
+}
+
+function newMatch(){
+  M = ENGINE.createMatch({ mode:MODE, players:[{ id:'1', name:'你' }] });
+  syncS();
+}
+
+/* 当前概率（来自引擎，不在客户端重算） */
+function probs(n){ return ENGINE.probsFor(M, n); }
+
+/* ============ 音效 ============ */
+let audioOn = true, actx = null;
+function beep(freq, dur, type='sine', vol=.06){
+  if(!audioOn) return;
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  }catch(e){}
+}
+function tick(){ beep(1400 + Math.random()*300, .03, 'square', .035); }
+const SFX = {
+  minus:()=>beep(180, .3, 'sawtooth', .09),
+  plus: ()=>beep(660, .18, 'triangle', .07),
+  death:()=>{beep(90,.7,'sawtooth',.14); setTimeout(()=>beep(60,1.1,'sawtooth',.12),180);},
+  full: ()=>{beep(520,.12,'sine',.07); setTimeout(()=>beep(780,.22,'sine',.07),110);},
+  gold: ()=>{beep(880,.1,'square',.05); setTimeout(()=>beep(1320,.2,'square',.05),90);},
+  buy:  ()=>{beep(700,.09,'sine',.06); setTimeout(()=>beep(1050,.14,'sine',.06),80);},
+  charm:()=>{beep(300,.15,'square',.08); setTimeout(()=>beep(900,.35,'sine',.09),100);},
+};
+
+/* ============ 绘制转盘 ============ */
+const wheel = document.getElementById('wheel');
+const NS = 'http://www.w3.org/2000/svg';
+function pt(cx,cy,r,deg){
+  const a = (deg-90)*Math.PI/180;
+  return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+}
+function buildWheel(){
+  wheel.innerHTML = '';
+  const cx=200, cy=200, r=186;
+  for(let i=0;i<5;i++){
+    const a0=i*72, a1=a0+72, mid=a0+36;
+    const [x0,y0]=pt(cx,cy,r,a0), [x1,y1]=pt(cx,cy,r,a1);
+    const path=document.createElementNS(NS,'path');
+    path.setAttribute('d',`M${cx},${cy} L${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1} Z`);
+    path.setAttribute('fill',EVENTS[i].color);
+    path.setAttribute('stroke','rgba(0,0,0,.55)');
+    path.setAttribute('stroke-width','2');
+    wheel.appendChild(path);
+
+    // 文字：放在半径 0.6r 处
+    const [tx,ty]=pt(cx,cy,r*0.60,mid);
+    let rot = mid;
+    if(rot>90 && rot<270) rot += 180; // 保持可读
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',tx); t.setAttribute('y',ty);
+    t.setAttribute('fill', i===2 ? '#e8e6e1' : '#fff4e0');
+    t.setAttribute('font-size','17');
+    t.setAttribute('font-weight','700');
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('dominant-baseline','middle');
+    t.setAttribute('transform',`rotate(${rot-90} ${tx} ${ty})`);
+    t.textContent = EVENTS[i].txt;
+    wheel.appendChild(t);
+  }
+  // 中心毂
+  const hub=document.createElementNS(NS,'circle');
+  hub.setAttribute('cx',cx);hub.setAttribute('cy',cy);hub.setAttribute('r',34);
+  hub.setAttribute('fill','#0c0b10');hub.setAttribute('stroke',getComputedStyle(document.body).getPropertyValue('--gold-dim').trim());
+  hub.setAttribute('stroke-width','3');
+  wheel.appendChild(hub);
+  const ht=document.createElementNS(NS,'text');
+  ht.setAttribute('x',cx);ht.setAttribute('y',cy+1);ht.setAttribute('fill','#e8c26a');
+  ht.setAttribute('font-size','13');ht.setAttribute('font-weight','700');
+  ht.setAttribute('text-anchor','middle');ht.setAttribute('dominant-baseline','middle');
+  ht.setAttribute('letter-spacing','1');
+  ht.textContent='命运';
+  wheel.appendChild(ht);
+}
+
+/* 灯泡 */
+const ring = document.getElementById('ring');
+function buildBulbs(){
+  ring.innerHTML='';
+  for(let i=0;i<20;i++){
+    const b=document.createElement('div');
+    b.className='bulb';
+    const a=(i/20)*360;
+    const R=48.5; // 百分比半径
+    b.style.left = `calc(50% + ${(R*Math.sin(a*Math.PI/180)).toFixed(3)}% - 4.5px)`;
+    b.style.top  = `calc(50% - ${(R*Math.cos(a*Math.PI/180)).toFixed(3)}% - 4.5px)`;
+    ring.appendChild(b);
+  }
+}
+let bulbTimer=null;
+function bulbsRun(){
+  const bs=[...ring.children]; let i=0;
+  clearTimeout(bulbTimer);
+  const step = ()=>{
+    bs.forEach(b=>b.classList.remove('on'));
+    bs[i%bs.length].classList.add('on');
+    bs[(i+10)%bs.length].classList.add('on');
+    i++;
+    bulbTimer = setTimeout(step, 60 + Math.min(240, i*4)); // 逐渐变慢
+  };
+  step();
+}
+function bulbsStop(){
+  clearInterval(bulbTimer);
+  [...ring.children].forEach(b=>b.classList.add('on'));
+  setTimeout(()=>[...ring.children].forEach(b=>b.classList.remove('on')),700);
+}
+
+/* ============ 渲染 ============ */
+const $ = id => document.getElementById(id);
+function render(){
+  // hearts
+  const hearts=$('hearts'); hearts.innerHTML='';
+  for(let i=0;i<MAX_HP;i++){
+    const s=document.createElementNS(NS,'svg');
+    s.setAttribute('viewBox','0 0 24 24'); s.setAttribute('class','heart'+(i<S.hp?'':' empty'));
+    s.innerHTML='<path fill="#e5383b" d="M12 21s-7.5-4.7-9.6-9.2C.6 8.1 2.4 4.5 5.9 4.5c2 0 3.4 1.1 4.1 2.2.7-1.1 2.1-2.2 4.1-2.2 3.5 0 5.3 3.6 3.5 7.3C19.5 16.3 12 21 12 21z"/>';
+    hearts.appendChild(s);
+  }
+  const ph = $('phase');
+  if(S.ms71){
+    ph.className = 'phase danger';
+    ph.innerHTML = '☠ 镰刀已挥下 · 每转先扣 1 滴血';
+  } else if(S.ms31){
+    ph.className = 'phase';
+    ph.innerHTML = `下一节点：第 71 转（还有 ${Math.max(0, 71 - S.spins)} 转）`;
+  } else {
+    ph.className = 'phase';
+    ph.innerHTML = `下一节点：第 31 转（还有 ${Math.max(0, 31 - S.spins)} 转）`;
+  }
+
+  /* V17：顶部血量条 —— 心 + 数字 + 进度宽度，三者必须同一份数据渲染，
+     不然会出现「心还剩 2 颗但条是满的」这种看着像 bug 的不一致。 */
+  $('hpTxt').textContent = `${S.hp} / ${MAX_HP}`;
+  $('hpTxt').className = 'hp-num' + (S.hp<=2 ? ' danger' : '');
+  $('hpFill').style.width = Math.max(0, S.hp) / MAX_HP * 100 + '%';
+  $('hpCell').className = 'hpcell me'
+    + (S.hp<=2 && !S.ended ? ' warn' : (S.hp>=MAX_HP ? ' ok' : ''));
+  $('hpSub').textContent = S.ended
+    ? '本局结束 · 第 ' + S.spins + ' 转'
+    : '第 ' + S.spins + ' 转' + (S.ms71 ? ' · ☠ 镰刀已挥下，每转先扣 1 滴' : '');
+  $('goldTxt').textContent = fmtGold(S.gold);
+  $('itrHint').textContent = S.gold >= 10 ? `· 利息 +${fmtGold(Math.floor(S.gold/10))}` : '';
+  $('spinTxt').textContent = S.spins;
+  $('bestTxt').textContent = +(localStorage.getItem('rr_best')||0);
+  $('charmTxt').textContent = S.charms;
+  $('potionTxt').textContent = S.potions;
+  $('usePotion').disabled = S.potions===0 || S.hp>=MAX_HP || S.ended;
+
+  renderProbs();
+  renderShop();
+  $('spinBtn').disabled = S.spinning || S.ended;
+}
+
+function renderProbs(){
+  const p = probs(Math.min(S.spins, MAX_SPIN));
+  const box=$('probs'); box.innerHTML='';
+  const order=[2,0,3,1,4]; // minus2, minus1, plus2, plus1, gold
+  const colorMap={minus2:'#e5383b',minus1:'#c9452f',plus2:'#4d8fd6',plus1:'#52b788',gold:'#e8c26a'};
+  order.forEach(i=>{
+    const k=EVENTS[i].key;
+    const row=document.createElement('div'); row.className='prob-row';
+    row.innerHTML=`
+      <div class="prob-head">
+        <span style="color:${colorMap[k]}">${EVENTS[i].name}</span>
+        <span class="pv" style="color:${colorMap[k]}">${p[i].toFixed(1)}%</span>
+      </div>
+      <div class="bar"><i style="width:${p[i]}%;background:${colorMap[k]}"></i></div>`;
+    box.appendChild(row);
+  });
+  const doom = p[2] + p[0];
+  $('doomTxt').textContent = doom.toFixed(1) + '%';
+}
+
+function renderShop(){
+  const box=$('shop'); box.innerHTML='';
+  /* 商品名/价格/限购次数全部从引擎取 —— 客户端不再写死任何数值 */
+  ENGINE.shopFor(M, M.players['1']).forEach(it=>{
+    const soldOut = it.limit != null && S.rewinds >= it.limit;
+    const can = S.gold >= it.price && !S.ended && !soldOut;
+    const d=document.createElement('div'); d.className='shop-item';
+    d.innerHTML=`
+      <div class="shop-top"><span class="shop-name">${it.name}</span><span class="shop-price">${it.price} 金</span></div>
+      <div class="shop-desc">${SHOP_DESC[it.id]||it.desc}${it.limit!=null?` <b style="color:${soldOut?'#e5383b':'#8e8a82'}">已用 ${S.rewinds}/${it.limit}</b>`:''}</div>
+      <button class="buy-btn" ${can?'':'disabled'}>${soldOut ? '已 售 罄' : '购 买'}</button>`;
+    d.querySelector('button').onclick = ()=>buy(it);
+    box.appendChild(d);
+  });
+}
+
+function log(msg, color){
+  const el=$('log');
+  const d=document.createElement('div');
+  d.innerHTML = `<span class="t">[${String(S.spins).padStart(3,'0')}]</span> <span style="color:${color||'#a8a49c'}">${msg}</span>`;
+  el.insertBefore(d, el.firstChild);
+}
+
+/* ============ 转动 ============ */
+let rot = 0;
+
+/* 先判定、后演出。引擎给出结果后，动画只是「把已经发生的事放给你看」。
+   动画时长不参与任何计算 —— 将来接服务端时，网络抖动也打不散时序。 */
+function spin(){
+  if(S.spinning || S.ended) return;
+
+  const out = ENGINE.applyAction(M, { type:'spin', playerId:'1' }, Math.random);
+  const ev = out.events;
+  const rollEv = ev.filter(e=>e.t==='roll')[0];
+
+  /* 镰刀先落下：血量不够，转盘根本没转起来 */
+  if(!rollEv){
+    M = out.match; syncS();
+    log('镰刀先一步落下 · 你没撑到转盘停稳', '#e5383b');
+    SFX.death();
+    const rEl=$('result');
+    rEl.textContent = '镰刀先一步落下 · 你没撑到转盘停稳';
+    rEl.style.color = '#e5383b';
+    rEl.style.borderColor = '#e5383b55';
+    rEl.style.background = '#e5383b14';
+    rEl.className = 'result show';
+    render();
+    setTimeout(()=>end(false), 1000);
+    return;
+  }
+
+  /* 正常一转：判定已完成，先把事件挂起，等动画放完再播报 */
+  pending = { match: out.match, events: ev };
+  S.spinning = true; render();
+
+  const idx = rollEv.idx;
+  const c = idx*72 + 36;
+  const base = ((rot % 360) + 360) % 360;
+  let delta = ((-c - base) % 360 + 360) % 360;
+  rot += 360*6 + delta + (Math.random()*54 - 27);
+  wheel.style.transform = `rotate(${rot}deg)`;
+
+  $('result').className = 'result idle';
+  $('result').textContent = '命运正在转动…';
+  bulbsRun();
+
+  // 滴答声
+  let t=0, gap=70;
+  const ticker = setInterval(()=>{
+    if(!audioOn) return;
+    tick(); t++;
+    if(t>8) gap += 26;
+    if(t>34) clearInterval(ticker);
+  }, gap);
+  setTimeout(()=>clearInterval(ticker), 4400);
+
+  setTimeout(()=>{
+    bulbsStop();
+    M = pending.match;
+    syncS();
+    present(pending.events);   // ★ 演出：只读事件，不参与计算
+    pending = null;
+  }, 4350);
+}
+
+/* ============ 事件播报（纯表现层） ============ */
+function present(events){
+  let died = false, survived = false;
+
+  events.forEach(e=>{
+    switch(e.t){
+      case 'scythe':
+        if(e.blockedByCharm){ log('镰刀挥下 · 免死护符替你挡下这 1 滴', '#e8c26a'); SFX.charm(); }
+        else { log(`镰刀挥下 · 先扣 ${e.amount} 滴血 → 剩余 ${e.hp}`, '#e5383b'); SFX.minus(); }
+        break;
+      case 'damage':
+        if(e.blockedByCharm){ log(`扣 ${e.amount} 滴血 本是致命伤 · 免死护符替你挡下`, '#e8c26a'); SFX.charm(); }
+        else { log(`扣 ${e.amount} 滴血 → 剩余 ${Math.max(0,e.hp)}`, '#e5383b'); if(e.hp>0) SFX.minus(); }
+        break;
+      case 'heal':
+        if(e.overflow) log(`加 ${e.amount} 滴血 · 已满，溢出`, '#6f6b64');
+        else log(`加 ${e.amount} 滴血 → 剩余 ${e.to}`, e.amount===2?'#4d8fd6':'#52b788');
+        SFX.full();
+        break;
+      case 'gold':      log('获得 50 金币', '#e8c26a'); SFX.gold(); break;
+      case 'interest':  log(`死神利息：本金 ${fmtGold(e.principal)} 金 → +${fmtGold(e.amount)} 金`, '#c8a24a'); break;
+      case 'milestone': milestone(e); break;
+      case 'death':     died = true; SFX.death(); break;
+      case 'over':      survived = (e.reason === 'doom'); break;
+    }
+  });
+
+  /* 转盘结果大字 */
+  const roll = events.filter(e=>e.t==='roll')[0];
+  const dmg  = events.filter(e=>e.t==='damage')[0];
+  const heal = events.filter(e=>e.t==='heal')[0];
+  const itr  = events.filter(e=>e.t==='interest')[0];
+  let msg = roll ? roll.label : '';
+  let color = '#e8e6e1';
+  if(dmg){
+    if(dmg.blockedByCharm){ msg = `扣 ${dmg.amount} 滴血 · 护符碎裂，生命锁在 1`; color = '#e8c26a'; }
+    else color = '#e5383b';
+  } else if(heal){
+    if(heal.overflow){ msg = `加 ${heal.amount} 滴血（已满，溢出）`; color = '#8e8a82'; }
+    else color = heal.amount===2 ? '#4d8fd6' : '#52b788';
+  } else if(roll && roll.key === 'gold'){
+    msg = '获得 50 金币'; color = '#e8c26a';
+  }
+  if(itr) msg += `　·　利息 +${fmtGold(itr.amount)} 金`;
+
+  const rEl=$('result');
+  rEl.textContent = msg;
+  rEl.style.color = color;
+  rEl.style.borderColor = color+'55';
+  rEl.style.background = color+'14';
+  rEl.className = 'result show';
+
+  render();
+  if(died) setTimeout(()=>end(false), 900);
+  else if(survived) setTimeout(()=>end(true), 1100);
+}
+
+/* 死神降临演出 */
+function herald(line, desc){
+  $('heraldLine').innerHTML = line;
+  $('heraldDesc').innerHTML = desc;
+  $('herald').classList.add('show');
+  beep(110, .9, 'sawtooth', .13);
+  setTimeout(()=>beep(220, .5, 'triangle', .07), 260);
+  setTimeout(()=>$('herald').classList.remove('show'), 2400);
+}
+
+/* 死神节点：血量与道具在引擎里已经改完，这里只负责演出 */
+function milestone(e){
+  const what = e.lost > 0 ? `${e.lost} 件未使用的道具被夺走` : '你手上本就没有道具';
+  const healed = e.hp >= MAX_HP;
+  log(`【第 ${S.spins} 转】死神降临${healed ? ' · 生命回满' : ''}，${what}`, '#e8c26a');
+
+  if(e.n === MODE_RULES.nodeFirst){
+    herald('「哦，你的运气挺不错的！」',
+      `死神将你的生命补满至 ${MAX_HP} 滴<br>${what}`);
+  } else {
+    herald('「没想到你运气这么好，<br>但是接下来就没那么容易了！」',
+      `生命补满至 ${MAX_HP} 滴 · ${what}<br><b>此后每一转，转盘转动前先扣 1 滴血</b>`);
+  }
+}
+
+/* 规则结算已全部移入 engine.js —— 客户端不再自己算血量/金币/概率 */
+
+/* ============ 商场 ============ */
+/* 买、用道具都走引擎，客户端只负责把返回的事件播出来 */
+function applyAndPresent(action, onOk){
+  const out = ENGINE.applyAction(M, Object.assign({ playerId:'1' }, action), Math.random);
+  const rej = out.events.filter(e=>e.t==='rejected')[0];
+  if(rej){ log('买不了：' + (REJECT_TEXT[rej.reason]||rej.reason), '#e5383b'); return false; }
+  M = out.match; syncS();
+  out.events.forEach(e=>{
+    if(e.t === 'buy'){
+      if(e.itemId === 'charm')       log(`购买 免死护符 ×1（−${e.cost} 金）`, '#e8c26a');
+      else if(e.itemId === 'potion') log(`购买 生命药水 ×1（−${e.cost} 金）`, '#e8c26a');
+    } else if(e.t === 'rewind'){
+      log(`减少转数 −5（${e.from} → ${e.to}）· 本局剩 ${e.limit - e.used} 次`, '#52b788');
+    } else if(e.t === 'potion'){
+      log('使用 生命药水 → 血量回满', '#52b788');
+    }
+  });
+  if(onOk) onOk();
+  render();
+  return true;
+}
+
+function buy(it){
+  if(S.spinning) return;
+  applyAndPresent({ type:'buy', itemId:it.id }, ()=>{ SFX.buy(); });
+}
+
+function usePotion(){
+  if(S.spinning) return;
+  applyAndPresent({ type:'usePotion' }, ()=>{ SFX.full(); });
+}
+
+/* ============ 结局 ============ */
+function end(survived){
+  S.spinning = false;
+  const best = +(localStorage.getItem('rr_best')||0);
+  if(S.spins > best) localStorage.setItem('rr_best', S.spins);
+
+  const modal=$('endModal');
+  modal.className = 'modal' + (survived ? '' : ' dead');
+  $('endTitle').className = 'big ' + (survived ? 'w' : 'd');
+  $('endTitle').textContent = survived ? '死 神 退 场' : '你 死 了';
+  $('endSub').textContent = survived
+    ? `第 ${S.spins} 转 · 轮盘再无生机，你活着走下了赌桌`
+    : `第 ${S.spins} 转 · 生命耗尽`;
+
+  let grade;
+  if(survived) grade = '极限生还者';
+  else if(S.spins>=90) grade='轮盘之王';
+  else if(S.spins>=70) grade='死亡舞者';
+  else if(S.spins>=45) grade='老练赌徒';
+  else if(S.spins>=20) grade='新手赌徒';
+  else grade='命运弃子';
+  $('endGrade').textContent = '评价 · ' + grade;
+
+  const nm={minus1:'扣 1 滴血',plus1:'加 1 滴血',minus2:'扣 2 滴血',plus2:'加 2 滴血',gold:'50 金币'};
+  const rows=[[`最终转数`,S.spins],[`剩余生命`,`${S.hp} / ${MAX_HP}`],[`剩余金币`,fmtGold(S.gold)],
+    [`转盘赚取`,fmtGold(S.earned - S.interest)],[`死神利息`,fmtGold(S.interest)],[`累计消费`,fmtGold(S.spent)],
+    [`护符消耗`,S.charmUsed],[`第 31 转赠礼`,S.ms31?'已达成':'未达成'],[`第 71 转镰刀`,S.ms71?'已挥下':'未达成']];
+  let html = rows.map(r=>`<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+  html += Object.keys(nm).map(k=>`<div><span>触发 ${nm[k]}</span><b>${S.tally[k]} 次</b></div>`).join('');
+  $('endTally').innerHTML = html;
+
+  $('endOverlay').classList.add('show');
+  render();
+}
+
+/* ============ 启动 ============ */
+function init(){
+  newMatch();       // 本地开一局：规则来自 engine.js，一次网络请求都不发
+  rot = 0;
+  wheel.style.transition = 'none';
+  wheel.style.transform = 'rotate(0deg)';
+  void wheel.offsetWidth;
+  wheel.style.transition = 'transform 4.3s cubic-bezier(.13,.72,.03,1)';
+  $('log').innerHTML = '';
+  $('result').className='result idle';
+  $('result').textContent='等待命运裁决';
+  $('result').style.background='transparent';
+  $('result').style.borderColor='transparent';
+  $('endOverlay').classList.remove('show');
+  $('herald').classList.remove('show');
+  log(`新的赌局开始 · 生命 ${MAX_HP} / ${MAX_HP}`, '#8e8a82');
+  render();
+}
+
+buildWheel(); buildBulbs(); init();
+
+/* ============ V16：单人模式也用房主改过的规则 ============
+   🔴 赐红定的规矩：**每次重新启动客户端，都自动回到默认规则**。
+   所以这里只"拉一次"、**绝不写进 localStorage** —— 关掉再开就是引擎内置的默认，
+   想用自定义规则就得再拉一次（服务端还开着就自动拉到，开着穿透也一样）。
+   拉不到（没开服务端 / 离线 / 手机不在同一个网）就老老实实用默认 ——
+   单人模式的设计底线是：断网也能玩。 */
+(function pullRulesOnce(){
+  /* 断网 / 假 DOM / file:// 下这些全局都可能不存在 —— 那正好就用默认规则，
+     什么都不做。单人模式的底线是：任何情况下都能开跑。 */
+  try {
+    if (typeof fetch !== 'function') return;
+    var urls = [];
+    if (typeof location !== 'undefined' &&
+        (location.protocol === 'http:' || location.protocol === 'https:')) urls.push('rules.json');
+    try {
+      var a = localStorage.getItem('rr-addr') || '';
+      if (a) {
+        var base = a.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
+        if (!/^https?:\/\//.test(base)) base = 'http://' + base;
+        urls.push(base + '/rules.json');
+      }
+    } catch (e) { /* file:// 下没有 localStorage，跳过 */ }
+
+    var i = 0;
+    function next(){
+      if (i >= urls.length) return;
+      var u = urls[i++];
+      fetch(u, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (d) {
+          if (!d || !d.custom || !d.rules) { next(); return; }
+          var res = ENGINE.configure(d.rules);
+          if (!res || !res.ok) { next(); return; }
+          /* 已经转过了就别打断人家 —— 规则下一局生效 */
+          if (typeof S !== 'undefined' && S && S.spins > 0) {
+            log('已套用房主的自定义规则 · 下一局生效', '#e8c26a');
+          } else {
+            init();
+            log('已套用房主的自定义规则', '#e8c26a');
+          }
+        });
+    }
+    next();
+  } catch (e) { /* 拉规则这件事失败 = 用默认规则，不影响本局 */ }
+})();
+
+$('spinBtn').onclick = spin;
+$('usePotion').onclick = usePotion;
+$('restartBtn').onclick = init;
+$('btnReset').onclick = ()=>{ if(confirm('放弃当前赌局，重新开始？')) init(); };
+$('btnRules').onclick = ()=> $('ruleOverlay').classList.add('show');
+$('closeRules').onclick = ()=> $('ruleOverlay').classList.remove('show');
+$('btnSound').onclick = ()=>{
+  audioOn = !audioOn;
+  $('btnSound').textContent = '音效：' + (audioOn ? '开' : '关');
+};
+document.addEventListener('keydown', ev=>{
+  if(ev.code === 'Space'){
+    ev.preventDefault();
+    if($('ruleOverlay').classList.contains('show')) return;
+    if(S.ended) init(); else spin();
+  }
+});
+</script>
+</body>
+</html>

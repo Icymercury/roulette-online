@@ -1,0 +1,2755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="生死转盘">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>生死转盘 · 联机</title>
+<style>
+:root{
+  --gold:#e8c26a; --gold-dim:#8d7538; --red:#e5383b; --green:#52b788; --blue:#4d8fd6;
+  --bg:#0a0a0e; --card:rgba(255,255,255,.045); --line:rgba(232,194,106,.18);
+  --txt:#e8e6e1; --txt-dim:#8e8a82;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #2a1218 0%, transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, #141620 0%, transparent 60%),
+    var(--bg);
+  color:var(--txt);
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:18px 16px 40px; overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;      /* 手机：去掉双击缩放那 300ms 延迟 */
+}
+.app{width:100%;max-width:1240px}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{
+  font-size:22px;letter-spacing:6px;font-weight:600;
+  background:linear-gradient(180deg,#fff3d0,#e8c26a 60%,#a8823a);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hdr-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mini-btn{
+  background:var(--card);border:1px solid var(--line);color:var(--txt-dim);
+  padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;letter-spacing:1px;transition:.2s;
+  font-family:inherit;text-decoration:none;
+}
+.mini-btn:hover{color:var(--gold);border-color:var(--gold-dim)}
+.pill{font-size:12px;padding:5px 13px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--txt-dim)}
+.pill.on{color:var(--green);border-color:rgba(82,183,136,.55)}
+.pill.off{color:var(--red);border-color:rgba(229,56,59,.55)}
+.pill.gold{color:var(--gold);border-color:var(--gold-dim)}
+
+/* ---------- 连接栏（入口）---------- */
+.joinbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start}
+input{
+  background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:7px;color:var(--txt);
+  padding:9px 12px;font-size:13px;font-family:inherit;outline:none;min-width:0;
+}
+input:focus{border-color:var(--gold-dim)}
+#name{width:140px}
+#addr{flex:1;min-width:180px}
+#pass{width:150px}
+
+/* ① 自动搜到的服务器 */
+.srvbox{flex:1 1 100%;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.22);padding:9px 11px}
+.srvhead{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#8e8a82;letter-spacing:1px;margin-bottom:7px}
+.srvlist{display:flex;flex-direction:column;gap:7px}
+.srvempty{font-size:12.5px;color:#7d7568;line-height:1.75;padding:4px 0}
+.srvcard{
+  border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;
+  background:rgba(255,255,255,.02);transition:.15s;
+  display:flex;justify-content:space-between;gap:10px;align-items:center;
+}
+.srvcard:hover{border-color:var(--gold-dim);background:rgba(232,194,106,.06);transform:translateY(-1px)}
+.srvcard .nm{font-size:14px;color:var(--txt);letter-spacing:.5px}
+.srvcard .mt{font-size:11.5px;color:#8e8a82;margin-top:3px;letter-spacing:.3px}
+.srvcard .badge{font-size:11px;color:var(--gold);border:1px solid var(--gold-dim);border-radius:20px;padding:2px 9px;white-space:nowrap;flex:none}
+.srvcard .badge.dim{color:#7d7568;border-color:var(--line)}
+
+/* ② 异地加入 / 手动地址 */
+.jb-manual{flex:1 1 100%;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.18);padding:9px 11px}
+.jb-manual>summary{cursor:pointer;font-size:12.5px;color:#a49b8b;letter-spacing:1px;outline:none;user-select:none}
+.jb-manual[open]>summary{margin-bottom:9px}
+.jb-manual input{margin-bottom:8px}
+.jbhint{font-size:11.5px;color:#7d7568;margin-top:7px;line-height:1.65}
+
+/* ============ 连接视图（V17）============
+   进房间之前才看得到的一整屏：搜索服务器 + 手动地址 + 房间码。
+   连上之后整屏收走，游戏页顶部只剩一个「换服务器」按钮 ——
+   搜索与地址栏不再占用游戏布局。
+
+   🔴 不能写死 display:none / block —— 由 JS 的 showView() 统一切换，
+      否则 init 抛异常时会卡在一个空白屏上（V10 白屏事故同款坑）。 */
+#connectView{
+  width:100%;max-width:660px;margin:0 auto;padding:22px 16px 30px;
+  display:none;flex-direction:column;align-items:center;
+}
+#connectView.on{display:flex}
+#gameView{display:none}
+#gameView.on{display:block}
+#connectView .cv-title{
+  font-size:21px;letter-spacing:.28em;text-indent:.28em;color:var(--gold);font-weight:700;margin:0 0 4px;
+}
+#connectView .cv-sub{color:var(--txt-dim);font-size:12.5px;letter-spacing:1px;margin-bottom:20px;text-align:center}
+#connectView .jb-manual{width:100%}
+/* 游戏页顶部的「换服务器」按钮 —— 只在这一个入口暴露连接界面 */
+#btnConnect{white-space:nowrap}
+
+/* 房主改服务器名称 / 房间码 */
+.lobby-cfg{border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin:14px 0;text-align:left;background:rgba(0,0,0,.2)}
+.lobby-cfg .cfgh{font-size:11.5px;color:#8e8a82;letter-spacing:2px;margin-bottom:9px}
+.lobby-cfg .cfgrow{display:flex;gap:9px;align-items:center;margin-bottom:8px}
+.lobby-cfg .cfgrow>span{width:52px;font-size:12.5px;color:#8e8a82;flex:none}
+.lobby-cfg .cfgrow input{flex:1;min-width:0;padding:7px 10px;font-size:12.5px}
+.lobby-cfg .sub{margin:0}
+.btn{
+  background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;border:1px solid #e86a52;
+  border-radius:7px;padding:9px 20px;font-size:13px;letter-spacing:2px;cursor:pointer;font-family:inherit;
+  transition:.15s;
+}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.5)}
+.btn.ghost{background:var(--card);color:var(--txt-dim);border-color:var(--line);letter-spacing:1px;padding:9px 14px}
+.btn.ghost:hover:not(:disabled){color:var(--gold);border-color:var(--gold-dim)}
+
+/* layout */
+main{display:grid;grid-template-columns:270px 1fr 300px;gap:16px;align-items:start}
+/* 窄屏（手机 / 竖屏平板）折成单列时，把转盘提到最前面 ——
+   否则要先划过「我」和记录才够得到转动按钮，手机上很难受。 */
+@media(max-width:1080px){
+  main{grid-template-columns:1fr}
+  main>.wheel-area{order:-1}
+}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;backdrop-filter:blur(6px)}
+.panel + .panel{margin-top:14px}
+.panel h2{
+  font-size:12px;letter-spacing:3px;color:var(--gold-dim);text-transform:uppercase;
+  margin-bottom:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center;
+}
+
+/* stat rows */
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+.stat:last-child{border-bottom:none}
+.stat .k{font-size:12px;color:var(--txt-dim);letter-spacing:1px}
+.stat .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.v.gold{color:var(--gold)} .v.danger{color:var(--red)} .v.ok{color:var(--green)}
+
+/* hp bar */
+.hpbar{height:10px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;margin:4px 0 8px}
+.hpbar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#8b1e2d,#e5383b);transition:width .4s}
+
+/* ============ 顶部血条对比条（V17）============
+   为什么要它：原来每个人的血条散在右栏「房间」卡片里，要一条条读才知道谁快死了。
+   现在全员血量做成**并排的横条**钉在轮盘上方，一眼就能看出对比。
+       · 每格 = 一个玩家：名字 + 血条 + 剩余血量数字
+       · 我 / 轮到他 / 掉线 / 出局 各有视觉标记
+       · 人多时自动换行（flex-wrap），不挤成一团 */
+.hpstrip{
+  width:100%;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  padding:10px 12px;margin-bottom:12px;
+  background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:12px;
+}
+.hpstrip:empty{display:none}
+.hpcell{
+  flex:1 1 150px;min-width:130px;max-width:230px;
+  border:1px solid var(--line);border-radius:9px;padding:8px 10px 7px;
+  background:rgba(255,255,255,.025);transition:.2s;
+}
+.hpcell.me{border-color:var(--gold-dim);background:rgba(232,194,106,.07)}
+.hpcell.turn{border-color:rgba(82,183,136,.6);box-shadow:0 0 0 1px rgba(82,183,136,.28) inset}
+.hpcell.dead{opacity:.42}
+.hpcell.off{filter:grayscale(.7)}
+.hpcell .hp-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:5px}
+.hpcell .hp-nm{font-size:12.5px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpcell .hp-num{font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+.hpcell .hp-track{height:11px;border-radius:6px;background:rgba(255,255,255,.09);overflow:hidden}
+.hpcell .hp-track i{display:block;height:100%;border-radius:6px;transition:width .45s;
+  background:linear-gradient(90deg,#8b1e2d,#e5383b)}
+.hpcell.warn .hp-track i{background:linear-gradient(90deg,#b3341f,#ff7a45)}
+.hpcell.ok .hp-track i{background:linear-gradient(90deg,#256b4e,#52b788)}
+.hpcell .hp-sub{font-size:10.5px;color:#7d7568;margin-top:4px;letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 进度模式（死神追猎）：第二条 = 目标进度，用绿色区分血量那条 */
+.hpcell .hp-track.pg{height:6px;margin-top:4px}
+.hpcell .hp-track.pg i{background:linear-gradient(90deg,#256b4e,#52b788)}
+
+/* turn bar */
+.turnbar{
+  font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:12px;text-align:center;letter-spacing:1.5px;
+  background:rgba(232,194,106,.08);border:1px solid rgba(232,194,106,.25);color:#c8a24a;line-height:1.5;
+}
+.turnbar.me{background:rgba(82,183,136,.14);border-color:rgba(82,183,136,.5);color:var(--green);animation:pulse 1.8s ease-in-out infinite}
+.turnbar.danger{background:rgba(229,56,59,.12);border-color:rgba(229,56,59,.45);color:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* wheel */
+.wheel-area{display:flex;flex-direction:column;align-items:center;gap:13px}
+.wheel-wrap{position:relative;width:360px;height:360px;max-width:86vw;max-height:86vw}
+.pointer{
+  position:absolute;top:-4px;left:50%;transform:translateX(-50%);z-index:5;
+  width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;
+  border-top:30px solid var(--gold);filter:drop-shadow(0 3px 6px rgba(0,0,0,.8));
+}
+.wheel{width:100%;height:100%;border-radius:50%;transition:transform 4.3s cubic-bezier(.13,.72,.03,1);filter:drop-shadow(0 12px 40px rgba(0,0,0,.7))}
+.ring{
+  position:absolute;inset:-14px;border-radius:50%;border:3px solid var(--gold-dim);
+  box-shadow:0 0 0 6px rgba(0,0,0,.5), inset 0 0 20px rgba(0,0,0,.6);pointer-events:none;
+}
+.bulb{position:absolute;width:9px;height:9px;border-radius:50%;background:#3a3226;box-shadow:0 0 6px rgba(0,0,0,.6);transition:.1s}
+.bulb.on{background:#ffe9a8;box-shadow:0 0 12px #ffd166}
+
+.result{
+  min-height:50px;display:flex;align-items:center;justify-content:center;font-size:19px;letter-spacing:2px;
+  font-weight:600;text-align:center;padding:8px 16px;border-radius:10px;width:100%;
+  border:1px solid transparent;transition:.3s;
+}
+.result.idle{color:var(--txt-dim);font-size:13px;letter-spacing:3px}
+.result.show{animation:pop .45s ease}
+@keyframes pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+
+.spin-btn{
+  width:230px;padding:15px 0;border-radius:10px;cursor:pointer;font-size:17px;letter-spacing:5px;font-weight:700;
+  background:linear-gradient(180deg,#c9452f,#8e1c1c);color:#ffe8d6;border:1px solid #e86a52;
+  box-shadow:0 6px 24px rgba(200,50,40,.35);transition:.15s;font-family:inherit;
+}
+.spin-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 30px rgba(220,60,45,.5)}
+.spin-btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.6)}
+.hint{font-size:11px;color:#5d5952;letter-spacing:1px}
+
+/* scythe tier strip */
+.tiers{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+.tier{
+  font-size:11.5px;padding:5px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(0,0,0,.25);color:#6f6b64;letter-spacing:.5px;font-variant-numeric:tabular-nums;
+}
+.tier.on{border-color:rgba(229,56,59,.65);background:rgba(229,56,59,.14);color:#ff8b8b;font-weight:600}
+
+/* player cards */
+.pcard{border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:11px 13px;margin-bottom:9px;background:rgba(0,0,0,.22);transition:.25s}
+.pcard.me{border-color:var(--gold-dim);background:rgba(232,194,106,.07)}
+.pcard.dead{opacity:.42}
+.pcard.off{border-color:rgba(229,56,59,.4)}
+.pcard.turn{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.pcard.done{border-color:rgba(82,183,136,.5);background:rgba(82,183,136,.06)}
+.phead{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:6px}
+.pname{font-size:14px;font-weight:600}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--txt-dim);white-space:nowrap}
+.pmeta{display:flex;gap:12px;font-size:11.5px;color:var(--txt-dim);font-variant-numeric:tabular-nums;flex-wrap:wrap;margin-top:6px}
+.pmeta b{color:var(--gold)}
+
+/* shop */
+.shop-item{border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:11px;margin-bottom:10px;background:rgba(0,0,0,.22);transition:.2s}
+.shop-item:hover{border-color:var(--gold-dim)}
+.shop-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px}
+.shop-name{font-size:14px;font-weight:600}
+.shop-price{font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+.shop-price s{color:#6f6b64;font-size:11px;margin-right:5px}
+.shop-desc{font-size:11.5px;color:var(--txt-dim);line-height:1.55;margin-bottom:8px}
+.buy-btn{
+  width:100%;padding:7px;border-radius:6px;cursor:pointer;font-size:12.5px;letter-spacing:1px;font-family:inherit;
+  background:linear-gradient(180deg,#3a2f14,#221b09);border:1px solid var(--gold-dim);color:var(--gold);transition:.2s;
+}
+.buy-btn:hover:not(:disabled){background:linear-gradient(180deg,#5c4a1f,#3a2f14)}
+.buy-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* log */
+#log{height:150px;overflow-y:auto;font-size:12px;line-height:1.85;color:var(--txt-dim);font-variant-numeric:tabular-nums}
+#log div{padding:1px 0;border-bottom:1px dashed rgba(255,255,255,.04)}
+#log .t{color:#57534a;margin-right:6px}
+#log::-webkit-scrollbar{width:5px}
+#log::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:3px}
+
+/* rank */
+.rank-row{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:7px;background:rgba(255,255,255,.04);margin-bottom:7px;font-size:13px}
+.rank-row.first{border:1px solid var(--gold-dim);background:rgba(232,194,106,.1)}
+.rank-row b{font-variant-numeric:tabular-nums;color:var(--gold)}
+
+/* herald */
+.herald{
+  position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(circle at 50% 45%, rgba(70,12,18,.97), rgba(2,2,4,.985));
+}
+.herald.show{display:flex;animation:fade .35s ease}
+.herald-in{text-align:center;max-width:560px}
+.herald .scythe{font-size:60px;line-height:1;margin-bottom:16px;display:block;animation:swing .9s cubic-bezier(.2,.9,.2,1);filter:drop-shadow(0 0 24px rgba(229,56,59,.6))}
+@keyframes swing{0%{transform:rotate(-55deg) scale(.35);opacity:0}55%{transform:rotate(10deg) scale(1.2);opacity:1}100%{transform:rotate(0) scale(1);opacity:1}}
+.herald .line{font-size:24px;letter-spacing:4px;font-weight:700;line-height:1.7;color:#e8c26a;text-shadow:0 0 34px rgba(232,194,106,.45)}
+.herald .desc{margin-top:16px;font-size:13px;color:#a8a49c;line-height:2}
+
+/* overlay */
+.overlay{
+  position:fixed;inset:0;background:rgba(4,4,7,.93);z-index:60;display:none;
+  align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);overflow-y:auto;
+}
+.overlay.show{display:flex;animation:fade .4s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{
+  max-width:560px;width:100%;background:linear-gradient(180deg,#15121a,#0c0b10);
+  border:1px solid var(--gold-dim);border-radius:14px;padding:26px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);max-height:92vh;overflow-y:auto;
+}
+.modal .big{font-size:30px;letter-spacing:7px;font-weight:700;margin-bottom:8px}
+.modal .big.w{color:var(--gold);text-shadow:0 0 30px rgba(232,194,106,.5)}
+.modal .big.d{color:var(--red);text-shadow:0 0 30px rgba(229,56,59,.5)}
+.modal .sub{font-size:13px;color:var(--txt-dim);margin-bottom:18px;letter-spacing:1.5px;line-height:1.7}
+
+/* lobby */
+.lobby-modes{display:flex;gap:9px;margin:16px 0}
+.lobby-mode{
+  flex:1;padding:12px 6px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.3);
+  color:var(--txt-dim);font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5;transition:.2s;
+}
+.lobby-mode.sel{border-color:var(--gold-dim);color:var(--gold);background:rgba(232,194,106,.1)}
+.lobby-mode:disabled{opacity:.45;cursor:not-allowed}
+.lobby-mode small{display:block;font-size:10.5px;opacity:.7;letter-spacing:0;margin-top:3px}
+.lobby-list{text-align:left;margin:14px 0}
+.lobby-row{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.045);margin-bottom:7px;font-size:13px}
+.lobby-row .tags{display:flex;gap:6px}
+.tiny{font-size:10.5px;padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--txt-dim)}
+
+/* target picker */
+.tgt-grid{display:flex;flex-direction:column;gap:9px;margin:16px 0}
+.tgt{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:9px;
+  border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--txt);font-size:14px;cursor:pointer;
+  font-family:inherit;text-align:left;transition:.2s;
+}
+.tgt:hover:not(:disabled){border-color:var(--gold-dim);background:rgba(232,194,106,.08)}
+.tgt:disabled{opacity:.35;cursor:not-allowed}
+.tgt .meta{font-size:11.5px;color:var(--txt-dim);font-variant-numeric:tabular-nums}
+
+/* rules */
+.rules-body{text-align:left;font-size:13px;line-height:1.9;color:#c9c5bd}
+.rules-body h3{font-size:12px;color:var(--gold);letter-spacing:2px;margin:14px 0 6px}
+.rules-body h3:first-child{margin-top:0}
+.rules-body table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.rules-body td{padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+.rules-body td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.warn{color:var(--gold);background:rgba(232,194,106,.08);padding:9px;border-radius:6px;border-left:2px solid var(--gold-dim);font-size:12px;line-height:1.7}
+
+/* 掉线封存提示条 */
+.freeze{
+  position:fixed;left:50%;top:60px;transform:translate(-50%,-16px);z-index:40;
+  display:none;flex-direction:column;align-items:center;gap:4px;
+  padding:11px 24px;border-radius:13px;text-align:center;pointer-events:none;
+  background:rgba(18,14,9,.95);border:1px solid #8d7538;
+  box-shadow:0 12px 38px rgba(0,0,0,.65);
+}
+.freeze.show{display:flex;animation:freezeIn .3s ease-out both}
+.freeze b{font-size:14px;letter-spacing:4px;color:#e8c26a}
+.freeze span{font-size:11.5px;color:#b9b2a6;line-height:1.6}
+.freeze i{color:#e5383b;font-style:normal}
+.freeze button{pointer-events:auto}   /* 容器不吃事件，但房主的「放弃本局」要能点 */
+@keyframes freezeIn{from{opacity:0;transform:translate(-50%,-26px)}to{opacity:1;transform:translate(-50%,-16px)}}
+
+/* 观战提示条（观战者浮在盘面上方） */
+.watch{
+  position:fixed;left:50%;top:60px;transform:translate(-50%,-16px);z-index:39;
+  display:none;flex-direction:column;align-items:center;gap:4px;
+  padding:11px 24px;border-radius:13px;text-align:center;pointer-events:none;
+  background:rgba(8,13,19,.95);border:1px solid #2f5f8f;
+  box-shadow:0 12px 38px rgba(0,0,0,.65);
+}
+.watch.show{display:flex;animation:freezeIn .3s ease-out both}
+.watch b{font-size:14px;letter-spacing:4px;color:#6fb3e8}
+.watch span{font-size:11.5px;color:#b9b2a6;line-height:1.6}
+.watch i{color:#8ec7f0;font-style:normal;font-weight:600}
+.watch button{pointer-events:auto}
+.watchcard{
+  border:1px dashed rgba(77,143,214,.5);background:rgba(77,143,214,.09);border-radius:9px;
+  padding:12px;font-size:12.5px;line-height:1.8;color:#9dc4e8;text-align:center;
+}
+.watchcard small{display:block;font-size:11px;color:#7a8a99;margin-top:4px;line-height:1.6}
+.watchrow{margin-top:11px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.08)}
+.watchrow-h{font-size:11px;color:#4d8fd6;letter-spacing:2px;margin-bottom:5px}
+.watchrow-i{font-size:12.5px;color:var(--txt-dim);padding:3px 0}
+.watchrow-i em{font-style:normal;font-size:10.5px;color:#6fb3e8;border:1px solid rgba(77,143,214,.45);
+  border-radius:9px;padding:1px 7px;margin-left:6px}
+/* 手机端：转盘居首、按钮变大、底部留出刘海/手势条的空间 */
+@media(max-width:560px){
+  body{padding:12px 10px calc(28px + env(safe-area-inset-bottom))}
+  h1{font-size:18px;letter-spacing:4px}
+  header{gap:8px;margin-bottom:10px}
+  .joinbar input{width:100%}
+  #name,#pass{width:calc(50% - 4px)}
+  .btn,.mini-btn,.lobby-mode,.tgt,.buy-btn{min-height:42px}   /* 手指戳得准 */
+  .panel{padding:13px 12px}
+  .wheel-wrap{width:min(78vw,320px);height:min(78vw,320px)}
+  .wheel-area{gap:11px}
+  .spin-btn{
+    width:100%;max-width:340px;padding:16px 0;font-size:16px;
+    position:sticky;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;
+  }
+  .modal{padding:20px 16px}
+  .modal .big{font-size:24px;letter-spacing:5px}
+  .freeze,.watch{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));max-width:92vw;padding:10px 16px}
+  @keyframes freezeIn{from{opacity:0;transform:translate(-50%,26px)}to{opacity:1;transform:translate(-50%,0)}}
+  .freeze.show,.watch.show{transform:translate(-50%,0)}
+  #log{height:110px}
+  .hint{display:none}
+}
+/* 手机横屏：屏幕矮，转盘再缩一档，免得按钮被顶出屏幕 */
+@media(max-height:520px) and (orientation:landscape){
+  .wheel-wrap{width:min(46vh,240px);height:min(46vh,240px)}
+  body{padding-top:8px}
+  header{margin-bottom:8px}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- 掉线封存提示（有人掉线时浮在盘面上方） -->
+<div class="freeze" id="freezeBar">
+  <b>❄ 赌 局 已 封 存</b>
+  <span id="freezeWho">等待重连…</span>
+  <button class="btn ghost" id="giveUpBtn" style="display:none;margin-top:7px;padding:6px 14px;font-size:12.5px">放弃本局 · 回大厅</button>
+</div>
+
+<!-- 观战提示（观战者浮在盘面上方） -->
+<div class="watch" id="watchBar">
+  <b>👁 观 战 中</b>
+  <span id="watchWho">正在读取局面…</span>
+  <button class="btn ghost" id="quitWatchBtn" style="margin-top:7px;padding:6px 14px;font-size:12.5px">退出观战 · 离开房间</button>
+</div>
+  <header>
+    <h1>生 死 转 盘</h1>
+    <div class="hdr-tools">
+      <span class="pill" id="conn">未连接</span>
+      <span class="pill gold" id="modePill" style="display:none">—</span>
+      <!-- V17：连接入口只留这一个按钮 —— 搜索服务器 / 手动地址全搬进独立的连接视图，
+           不再占用游戏页布局。连上之后它就变成「换服务器」。 -->
+      <button class="mini-btn" id="btnConnect">连接服务器</button>
+      <!-- V16：回启动页（选单人 / 联机那一屏）。单人页在左上角也有一个。 -->
+      <a class="mini-btn" id="btnBack" href="start.html">← 启动页</a>
+      <a class="mini-btn" href="roulette-wheel.html">单机 · 死亡轮盘</a>
+      <button class="mini-btn" id="btnRules">规则</button>
+      <button class="mini-btn" id="btnSound">音效：开</button>
+      <!-- V18.2：操作日志。出 bug 时点它把「我按过什么、服务器回了什么」捞出来给房主。 -->
+      <button class="mini-btn" id="btnLog">日志</button>
+    </div>
+  </header>
+
+  <!-- ============ 连接视图（V17）============
+       进房间之前才看得到：搜服务器 + 手动填地址 + 房间码。
+       连上之后整屏收走，游戏页顶部只留「连接服务器 / 换服务器」那一个按钮。
+       ⚠️ 默认带 class="on"（打开）：因为大多数人一进来就是要连服务器。
+          连上之后 JS 会把它收掉。 -->
+  <div id="connectView" class="on">
+    <div class="cv-title">连 接 服 务 器</div>
+    <div class="cv-sub" id="cvSub">正在搜索局域网里的服务器…</div>
+
+    <div class="joinbar" id="joinbar">
+      <input id="name" placeholder="你的名字">
+
+      <!-- ① 自动搜到的服务器。
+           ⚠️ 浏览器里的 JS 发不了 UDP 广播（安全沙箱不允许），所以「扫描局域网」
+              这件事只有原生客户端做得到 —— 手机 App 用 Java 扫、PC 客户端用 Node 扫，
+              扫完把结果喂给本页。网页方式打开时这里显示一句说明，走下面的手动地址。 -->
+      <div class="srvbox">
+        <div class="srvhead">
+          <span id="srvTitle">局域网里的服务器</span>
+          <button class="mini-btn" id="srvRescan">重新搜索</button>
+        </div>
+        <div class="srvlist" id="srvList"></div>
+      </div>
+
+      <!-- ② 异地加入 / 手动地址。
+           默认展开；只有检测到「本页跑在原生壳里、且壳有扫描能力」时才由 JS 收起。 -->
+      <details class="jb-manual" id="manualBox" open>
+        <summary>异地加入 · 手动填地址</summary>
+        <input id="addr" placeholder="192.168.1.5:8080 / Tailscale 地址 / 穿透网址">
+        <input id="pass" placeholder="房间码（服务器要求时才填）">
+        <button class="btn" id="joinBtn">连 接 这 个 地 址</button>
+        <div class="jbhint">同一个 WiFi 下一般不用填 —— 上面列出了能直连的服务器。<br>
+          异地的朋友：房主给什么就整条粘进来（带 <b>https://</b> 也行，端口不用管）；
+          只给了一串域名的话，加密还是明文会自动试。</div>
+      </details>
+    </div>
+
+    <button class="btn ghost" id="cvBackBtn" style="margin-top:16px;display:none">← 返回游戏（已连上的那台还在）</button>
+    <!-- 连不上时也要能拿到日志 —— 否则「异地连不上」这种最需要它的场景反而打不开 -->
+    <button class="btn ghost" id="cvLogBtn" style="margin-top:9px">🪵 查看操作日志（找 bug 用）</button>
+  </div>
+
+  <!-- ============ 游戏视图（V17）============
+       连上之后才显示。顶部血条对比条在轮盘上方。 -->
+  <div id="gameView">
+
+  <div class="hpstrip" id="hpStrip"></div>
+
+  <main id="main">
+    <!-- LEFT -->
+    <div>
+      <div class="panel">
+        <h2>我 <span id="myRoleTag" style="color:#5d5952;font-size:10.5px;letter-spacing:0"></span></h2>
+        <div id="myStats">
+        <div class="stat"><span class="k">生命</span><span class="v" id="myHp">—</span></div>
+        <div class="stat"><span class="k" id="myReadoutK">轮盘读数</span><span class="v" id="myReadout">—</span></div>
+        <div class="stat"><span class="k">金币 <span id="myItr" style="color:#a8863a"></span></span><span class="v gold" id="myGold">—</span></div>
+        <div class="stat" id="myProgressRow" style="display:none"><span class="k">目标进度</span><span class="v" id="myProgress">—</span></div>
+        <div class="stat" id="myTimeRow" style="display:none"><span class="k">用时</span><span class="v" id="myTime">—</span></div>
+        <div class="stat"><span class="k">🛡 护符 / 🧪 药水</span><span class="v" id="myItems">—</span></div>
+        <div class="stat" id="myBananaRow" style="display:none"><span class="k">🍌 被香蕉皮压住</span><span class="v" id="myBanana">0</span></div>
+        </div>
+        <div id="myRoleBox"></div>
+      </div>
+      <div class="panel">
+        <h2>记录</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="wheel-area">
+      <div class="turnbar" id="turnbar">正在连接…</div>
+      <div class="wheel-wrap">
+        <div class="pointer"></div>
+        <div class="ring" id="ring"></div>
+        <svg class="wheel" id="wheel" viewBox="0 0 400 400"></svg>
+      </div>
+      <div class="tiers" id="tiers"></div>
+      <div class="result idle" id="result">等待命运裁决</div>
+      <button class="spin-btn" id="spinBtn" disabled>转 动</button>
+      <div class="hint">空格键也可以转动 · 结果由服务器判定</div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="panel">
+        <h2>房间 <span id="roomHint" style="color:#5d5952;font-size:10.5px;letter-spacing:0"></span></h2>
+        <div id="players"></div>
+      </div>
+      <div class="panel">
+        <h2>商场</h2>
+        <div id="shop"></div>
+      </div>
+      <div class="panel" id="rankPanel" style="display:none">
+        <h2>名次</h2>
+        <div id="rank"></div>
+      </div>
+    </div>
+  </main>
+
+  </div><!-- /#gameView -->
+</div>
+
+<!-- herald 死神降临 -->
+<div class="herald" id="herald">
+  <div class="herald-in">
+    <span class="scythe">🗡</span>
+    <div class="line" id="heraldLine"></div>
+    <div class="desc" id="heraldDesc"></div>
+  </div>
+</div>
+
+<!-- 大厅
+     注意：这里**不能**写死 class="overlay show"。遮罩是全屏的（z-index:60），
+     一旦写死，JS 万一在 init() 里抛异常就再没人把它关掉，
+     连接栏会被永久盖住 —— 用户连「填服务器地址」的地方都看不到。
+     显示与否一律交给 renderLobby() 决定。 -->
+<div class="overlay" id="lobbyOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:24px">房 间 大 厅</div>
+    <div class="sub" id="lobbySub">等待进入房间…</div>
+    <div class="lobby-modes" id="lobbyModes"></div>
+    <div class="lobby-list" id="lobbyList"></div>
+    <!-- 服务器名称 / 房间码：房主可改。改了只影响新加入的人，房里的人不受影响 -->
+    <div class="lobby-cfg" id="lobbyCfg">
+      <div class="cfgh">本 服 务 器 <span id="cfgId" style="color:#7d7568;letter-spacing:0"></span></div>
+      <div class="cfgrow"><span>名称</span><input id="cfgName" maxlength="20" placeholder="如 阿红的房间"></div>
+      <div class="cfgrow"><span>房间码</span><input id="cfgCode" maxlength="12" placeholder="留空 = 不设门禁"></div>
+      <div class="cfgrow" style="display:block">
+        <button class="btn ghost" id="cfgSave" style="width:100%;padding:8px">保 存 设 置</button>
+      </div>
+      <div class="sub" id="cfgHint" style="font-size:11.5px;margin:0"></div>
+    </div>
+    <button class="btn" id="startBtn" style="width:100%" disabled>开 始 赌 局</button>
+    <button class="btn ghost" id="lobbyQuitBtn" style="width:100%;margin-top:9px">离 开 房 间</button>
+    <div class="sub" style="margin:14px 0 0;font-size:11.5px">
+      只有房主能切换模式与开局。对局开始后不能再入场 —— 但可以<b>进来观战</b>。<br>
+      房间名单里的每个人都是下一局的选手，提前走人的话下一局就不带你了。
+    </div>
+  </div>
+</div>
+
+<!-- 选中的服务器设了房间码时弹这个（替代「让人在连接栏里手填房间码」） -->
+<div class="overlay" id="codeOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:22px" id="codeTitle">需要房间码</div>
+    <div class="sub" id="codeSub">这台服务器设了门禁，问一下房主要。</div>
+    <input id="codeInput" placeholder="房间码" style="width:100%;margin:12px 0">
+    <button class="btn" id="codeYes" style="width:100%">进 入</button>
+    <button class="btn ghost" id="codeNo" style="width:100%;margin-top:9px">取 消</button>
+  </div>
+</div>
+
+<!-- 对局中进房：选择观战 -->
+<div class="overlay" id="spectateOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:22px">对 局 进 行 中</div>
+    <div class="sub" id="spectateSub"></div>
+    <button class="btn" id="spectateYes" style="width:100%;margin-bottom:9px">👁 进 入 观 战</button>
+    <button class="btn ghost" id="spectateNo" style="width:100%">离 开</button>
+  </div>
+</div>
+
+<!-- 操作日志（V18.2）
+     出 bug 时把这份发给房主：里面按时间记着「你按过什么、服务器回了什么」。
+     🔴 日志里不记地址、不记房间码 —— 就算整份贴出去也不会漏房主的 IP。
+     🔴 只有玩家自己点「发给房主」才会传出去，绝不后台上传。 -->
+<div class="overlay" id="logOverlay">
+  <div class="modal" style="text-align:left;max-width:660px">
+    <div class="big w" style="font-size:20px">操 作 日 志</div>
+    <div class="sub" style="text-align:left;margin:6px 0 12px">
+      卡住 / 连不上 / 转不动的时候，点「发给房主」把这份送过去 —— 房主在管理台里能看到。<br>
+      <span style="color:#7d7568">只记操作与收发，<b>不记地址、不记房间码</b>。</span>
+    </div>
+    <textarea id="logText" readonly spellcheck="false"
+      style="width:100%;height:44vh;min-height:180px;background:#0a0910;color:#c9c4ba;
+             border:1px solid #2e2a37;border-radius:9px;padding:10px;font-size:11.5px;
+             line-height:1.55;font-family:ui-monospace,Consolas,monospace;resize:vertical"></textarea>
+    <div class="row" style="margin-top:12px;flex-wrap:wrap">
+      <button class="btn" id="logCopy">复 制 全 文</button>
+      <button class="btn ghost" id="logSend">发 给 房 主</button>
+      <button class="btn ghost" id="logSave">存 成 文 件</button>
+      <button class="btn ghost" id="logClose">关 闭</button>
+    </div>
+    <div class="sub" id="logHint" style="text-align:left;margin:10px 0 0;font-size:11.5px"></div>
+  </div>
+</div>
+
+<!-- 退出本局确认 -->
+<div class="overlay" id="leaveOverlay">
+  <div class="modal">
+    <div class="big d" style="font-size:22px">退 出 本 局 ？</div>
+    <div class="sub">
+      你会立刻离开这一局，转成<b style="color:#6fb3e8">观战身份</b>。<br>
+      席位、名字、重连凭证都留着 —— 随时能接着看，下一局回大厅时自动回到名单。
+    </div>
+    <div class="warn" id="leaveWarn" style="text-align:left;margin-bottom:16px"></div>
+    <button class="btn" id="leaveYes" style="width:100%;margin-bottom:9px">确 认 退 出 本 局</button>
+    <button class="btn ghost" id="leaveNo" style="width:100%">算 了 · 继 续 打</button>
+  </div>
+</div>
+
+<!-- 香蕉皮目标选择 -->
+<div class="overlay" id="targetOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:22px">🍌 把 香 蕉 皮 扔 给 谁</div>
+    <div class="sub" id="targetSub"></div>
+    <div class="tgt-grid" id="targetGrid"></div>
+    <button class="btn ghost" id="targetCancel" style="width:100%">算 了</button>
+  </div>
+</div>
+
+<!-- 结算 -->
+<div class="overlay" id="endOverlay">
+  <div class="modal" id="endModal">
+    <div class="big" id="endTitle">终 局</div>
+    <div class="sub" id="endSub"></div>
+    <div id="endBody"></div>
+    <button class="btn" id="endBtn" style="width:100%;margin-top:6px">再 来 一 局</button>
+    <div class="sub" style="margin:12px 0 0;font-size:11.5px" id="endNote"></div>
+  </div>
+</div>
+
+<!-- 规则 -->
+<div class="overlay" id="ruleOverlay">
+  <div class="modal">
+    <div class="big w" style="font-size:24px">规 则</div>
+    <div class="sub" id="ruleSub">联机 · 对赌轮盘 / 死神追猎</div>
+    <div class="rules-body">
+      <h3>三张赌桌</h3>
+      <b style="color:#e8c26a">死亡轮盘</b>（单机，本地跑）：概率随转数递增，7 血，走到第 100 转绝境即通关。<br>
+      <b style="color:#e8c26a">对赌轮盘</b>（联机）：全场<b>共用一张轮盘</b>，轮流转动。15 血，概率恒定。<b>只剩一个人活着即胜。</b><br>
+      <b style="color:#e8c26a">死神追猎</b>（联机）：<b>各转各的轮盘</b>。10 血，目标 100 转。<b>先用时最短走完 100 转者胜</b>；
+      若中途只剩一人，那个人直接胜。
+      <h3>轮盘（联机两模式，恒定不变）</h3>
+      <table>
+        <tr><td>扣 1 滴血</td><td style="color:#c9452f">30%</td></tr>
+        <tr><td>加 1 滴血</td><td style="color:#52b788">30%</td></tr>
+        <tr><td>扣 2 滴血</td><td style="color:#e5383b">10%</td></tr>
+        <tr><td>加 2 滴血</td><td style="color:#4d8fd6">10%</td></tr>
+        <tr><td>50 金币</td><td style="color:#e8c26a">20%</td></tr>
+      </table>
+      <h3>死神的镰刀</h3>
+      <b style="color:#e8c26a">第 71 转</b>起，<b>轮盘转动前</b>先扣血。档位只升不降，逐转叠加：
+      <table>
+        <tr><td>第 71 转起</td><td style="color:#e5383b">每转先扣 1 滴</td></tr>
+        <tr><td>第 81 转起</td><td style="color:#e5383b">每转先扣 2 滴</td></tr>
+        <tr><td>第 91 转起</td><td style="color:#e5383b">每转先扣 3 滴</td></tr>
+      </table>
+      <div class="warn" style="margin-top:10px">
+        对赌轮盘的档位看<b>全场转数</b>，只升不降 —— 它拿不到「减少转数」，谁也推不动镰刀；<br>
+        死神追猎看<b>你自己的转数</b>。<br>
+        血量为 1 时镰刀落下即死 —— 除非有护符。
+      </div>
+      <h3>死神利息</h3>
+      <div class="warn" style="border-left-color:#c8a24a;color:#e8c26a;background:rgba(232,194,106,.06)">
+        「死神厌烦生命的急速流逝，为各位赌徒带来了利息。」<br>
+        每次转动结算后，你每持有 <b>10 金</b>就额外获得 <b>1 金</b>。<br>
+        <b>但本金只按前 500 金计</b>（每转最多 +50），且<b>只认转动前的本金</b> —— 本轮刚转出的 50 金不生息。
+      </div>
+      <h3>掉线怎么办</h3>
+      <div class="warn" style="border-left-color:#c8a24a;color:#e8c26a;background:rgba(232,194,106,.06)">
+        有人掉线 → 对局<b>立即封存</b>：计时停摆、谁也不能转、谁也不能买，
+        掉线的人身上不会有任何损失。<br>
+        他重连（甚至刷新页面）回来，对局<b>原地解封继续</b>；
+        封存的那段时间<b>不计入任何人的用时成绩</b>。
+      </div>
+      <h3>商场</h3>
+      免死护符 100 金 · 受到致命伤时自动碎裂，生命锁在 1 滴，可叠加<br>
+      生命药水 300 金 · 立刻恢复至上限<br>
+      减少转数 200 金 · 轮盘读数 −5（每局限 3 次）—— <b>只有死亡轮盘买得到</b><br>
+      香蕉皮 150 金 · 指定一名对手，其接下来 5 次转动<b>转数不涨</b>，但转盘效果照常结算 —— <b>只有死神追猎有</b>
+      <div class="warn" style="margin-top:10px">
+        <b>第 71 转后，道具每买一次价格翻倍。</b>收入是线性的（利息封顶），支出是指数的 —— 
+        所以钱不可能一直够用，赌局必然收敛。
+      </div>
+    </div>
+    <button class="btn" id="closeRules" style="margin-top:18px">明 白 了</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+/* ============================================================
+ * 生死转盘 · 联机客户端（M2）
+ * ------------------------------------------------------------
+ * 三个铁律：
+ *   ① 客户端一行规则都没有 —— 血、金、概率、镰刀、价格全部读服务端视图。
+ *   ② 客户端只做两件事：发指令（send）、把服务端推来的 events 播出来。
+ *   ③ 动画时长不参与任何计算 —— 结果早就在服务端定好了，这边只是「重演」。
+ *
+ * 因此本页没有任何 Math.random 掷骰、也没有任何本地结算。
+ *
+ * 路径说明：engine.js / manifest.json / 图标一律用「相对路径」引用。
+ *   这样同一个 client.html 既能在服务器上跑（相对到 /engine.js），
+ *   也能被安卓壳以 file:///android_asset/www/ 直接加载。
+ * ============================================================ */
+
+if (typeof RREngine === 'undefined') {
+  document.body.innerHTML =
+    '<div style="padding:40px;font:15px/1.9 sans-serif;color:#e8e6e1;background:#0c0b10;min-height:100vh">' +
+    '<h2 style="color:#e8c26a">engine.js 没能加载</h2>' +
+    '<p>联机客户端需要同目录下的 <code>engine.js</code>（由服务器或安卓壳提供）。</p>' +
+    '<p>网页方式请通过 <code>node server.js</code> 访问本页，不要用文件路径直接打开。</p></div>';
+  throw new Error('RREngine 未加载');
+}
+
+const ENGINE = RREngine;
+const $ = id => document.getElementById(id);
+
+/* ---------- 纯外观：配色 / 文案（数值一律不写死） ---------- */
+const WHEEL_STYLE = {
+  minus1: { color: '#8b1e2d', txt: '扣 1 滴血' },
+  plus1:  { color: '#256b4e', txt: '加 1 滴血' },
+  minus2: { color: '#101014', txt: '扣 2 滴血' },
+  plus2:  { color: '#1d4a7a', txt: '加 2 滴血' },
+  gold:   { color: '#9c6f14', txt: '50 金币' },
+};
+const FALLBACK_EVENTS = ENGINE.EVENTS;   // 首次同步前先把盘面画出来
+
+const SHOP_DESC = {
+  charm:  '致命伤自动触发：免疫一次死亡，并将生命锁在 1 滴，可叠加。',
+  potion: '立刻把血量恢复至上限。',
+  rewind: '轮盘读数 −5，死神后退 5 步。每局限 3 次。',
+  banana: '把香蕉皮扔给一名对手：他接下来 5 次转动「转数不涨」，但转盘效果照常结算。',
+};
+const REJECT_TEXT = {
+  'bad-room-code': '房间码不对',
+  'game-in-progress': '对局已开始，不能再入场（可以选观战）',
+  'bad-token': '重连凭证失效，无法恢复你的角色（对局中不能新入场，可以观战）',
+  'frozen': '赌局已封存 —— 有人掉线，等他重连回来才能继续',
+  'player-offline': '还有人不在线，等他连上再开局',
+  'too-many-watchers': '观战位满了，等有人退出观战再进来',
+  'not-joined': '你还没加入房间',
+  'not-host': '只有房主能做这个操作',
+  'nothing-to-change': '没有要改的东西',
+  'not-in-lobby': '大厅阶段才能做这个操作',
+  'not-playing': '对局还没开始',
+  'not-watching': '你现在不在观战',
+  'bad-mode': '这个模式不能开在服务器上',
+  'no-players': '房间里没有人',
+  'not-your-turn': '还没轮到你',
+  'not-in-play': '你不在本局对局里',
+  'not-enough-gold': '金币不够',
+  'limit-reached': '这件道具已经买满了',
+  'no-such-item': '没有这件商品',
+  'item-not-available': '这个模式买不到这件道具',
+  'bad-target': '目标不对（不能选自己，也不能空着）',
+  'target-not-in-play': '那个对手已经出局了',
+  'no-potion': '你手上没有药水',
+  'hp-full': '生命已满，不用喝药',
+  'game-over': '对局已经结束了',
+  'no-such-player': '找不到这个玩家',
+  'bad-action': '无效操作',
+  'unknown-action': '无效操作',
+};
+const REASON_TEXT = {
+  'last-standing': '最后一个站着的人',
+  'all-dead': '全员出局',
+  'all-left': '所有人都退出了本局',
+  'fastest-finish': '用时最短走完 100 转',
+  'sole-finisher': '唯一走完 100 转的人',
+  'death': '生命耗尽',
+  'doom': '轮盘再无生机',
+};
+
+function fmtGold(n) {
+  n = Number(n) || 0;
+  if (n < 10000) return String(n);
+  if (n < 100000000) return (n / 10000).toFixed(n < 100000 ? 1 : 0) + '万';
+  return (n / 100000000).toFixed(1) + '亿';
+}
+function fmtMs(ms) {
+  if (ms == null) return '—';
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  return (m > 0 ? m + '分' : '') + String(s % 60).padStart(2, '0') + '秒';
+}
+function esc(s) {
+  return String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+}
+
+/* ---------- 状态 ---------- */
+/* 座位凭证：存在浏览器里。刷新页面 / 断线重连都靠它回到自己的座位。
+   （服务端只认这枚 token，光知道编号是顶不了号的。） */
+const SESSION_KEY = 'rr-session';
+const ADDR_KEY = 'rr-addr';
+const SS = (function () {
+  /* 安卓壳（APK）优先：file:// 页面里的 localStorage 不保证能用，
+     而座位凭证一旦丢了就回不到自己的座位。所以壳里把 Key-Value 存进
+     App 私有目录（SharedPreferences），除非卸载 App，否则永不丢。 */
+  if (typeof window !== 'undefined' && window.RRNative && typeof window.RRNative.get === 'function') {
+    return {
+      getItem: function (k) { try { var v = window.RRNative.get(k); return (v === undefined || v === null || v === '') ? null : v; } catch (e) { return null; } },
+      setItem: function (k, v) { try { window.RRNative.set(k, String(v)); } catch (e) {} },
+      removeItem: function (k) { try { window.RRNative.remove(k); } catch (e) {} },
+    };
+  }
+  try { if (typeof localStorage !== 'undefined' && localStorage) return localStorage; } catch (e) {}
+  const mem = {};
+  return {
+    getItem: k => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = String(v); },
+    removeItem: k => { delete mem[k]; },
+  };
+})();
+function loadSession() {
+  try { return JSON.parse(SS.getItem(SESSION_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+let session = loadSession();
+function saveSession(id, token, name) {
+  session = { id: id, token: token, name: name || session.name };
+  try { SS.setItem(SESSION_KEY, JSON.stringify(session)); } catch (e) {}
+}
+
+/* ─────────── 操作日志（V18.2）───────────
+   干什么用：朋友那边出问题（连不上 / 卡住 / 转不动）时，房主能拿到一份
+   「他按过什么、服务器回了什么」的时间线 —— 不用在他手机上装任何东西。
+
+   三条硬约束，改这块时别破：
+     ① 内存环形缓冲（最多 800 条）+ 每 2 秒落一次存储 ⇒ 页面崩了、关了再打开，
+        还能捞到上一轮那份（导出时放在「上次会话」段 —— 出事的那次往往在那儿）。
+     ② **绝不记地址、绝不记房间码** —— 整份贴出去也不会漏房主 IP。
+     ③ 只有玩家自己点「发给房主」才上传，绝不后台传。 */
+const OPLOG_KEY = 'rr-oplog';
+const OPLOG_MAX = 800;
+const oplog = [];
+let oplogPrev = '';
+let oplogDirty = false;
+try { oplogPrev = SS.getItem(OPLOG_KEY) || ''; } catch (e) {}
+
+function opTime() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds())
+    + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
+function opLog(cat, msg) {
+  try {
+    oplog.push(opTime() + ' [' + cat + '] ' + msg);
+    if (oplog.length > OPLOG_MAX) oplog.shift();
+    oplogDirty = true;
+  } catch (e) { /* 记日志这件事本身绝不能把页面搞崩 */ }
+}
+function opSave() {
+  try { SS.setItem(OPLOG_KEY, oplog.slice(-400).join('\n')); } catch (e) {}
+}
+setInterval(function () { if (oplogDirty) { oplogDirty = false; opSave(); } }, 2000);
+try { window.addEventListener('pagehide', opSave); } catch (e) {}
+
+/* 消息摘要：只留排查时真用得上的几个字段，值一律截断（sync 那种大包尤其要瘦身） */
+function opBrief(o) {
+  try {
+    if (!o || typeof o !== 'object') return '';
+    const keep = ['mode', 'name', 'target', 'item', 'amount', 'reason', 'phase', 'turn', 'hp', 'who'];
+    const parts = [];
+    for (const k of keep) {
+      const v = o[k];
+      if (v === undefined || v === null || v === '') continue;
+      parts.push(k + '=' + (typeof v === 'object' ? '(…)' : String(v).slice(0, 20)));
+      if (parts.length >= 4) break;
+    }
+    return parts.length ? '  ' + parts.join(' ') : '';
+  } catch (e) { return ''; }
+}
+
+/* 点什么都记一笔 —— 「点了没反应」这类问题，这条线最直接 */
+try {
+  document.addEventListener('click', function (ev) {
+    const t = ev && ev.target;
+    if (!t) return;
+    let id = t.id || '';
+    if (!id && t.closest) { const up = t.closest('[id]'); if (up) id = up.id; }
+    const txt = String(t.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 14);
+    opLog('点击', (id ? '#' + id : '?') + (txt ? ' 「' + txt + '」' : ''));
+  }, true);
+} catch (e) {}
+
+/* 页面自己抛的异常也进来 —— 白屏 / 卡死时这常常是唯一的线索 */
+try {
+  window.addEventListener('error', function (ev) {
+    opLog('异常', String((ev && ev.message) || '未知') + (ev && ev.lineno ? ' @行' + ev.lineno : ''));
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    const r = ev && ev.reason;
+    opLog('异常', 'Promise：' + String((r && r.message) || r || '').slice(0, 120));
+  });
+} catch (e) {}
+
+/* 导出的整份文本：抬头 + 「上次会话」+「本次会话」 */
+function opExport() {
+  let nm = '—', mode = '—', phase = '—';
+  try {
+    nm = ($('name') && $('name').value ? $('name').value.trim() : '') || (session && session.name) || '—';
+    if (view) {
+      if (view.room && view.room.mode) mode = view.room.mode;
+      if (view.match && view.match.phase) phase = view.match.phase;
+    }
+  } catch (e) {}
+  const head = [
+    '# 生死转盘 · 操作日志',
+    '# 导出时间 ' + new Date().toLocaleString(),
+    '# 玩家 ' + nm + '   编号 ' + (myId == null ? '—' : myId)
+      + '   连接 ' + (ws && ws.readyState === 1 ? '已连' : '未连') + '（地址不记）',
+    '# 玩法 ' + mode + '   阶段 ' + phase,
+    '',
+  ];
+  const body = [];
+  if (oplogPrev) body.push('── 上次会话（可能就是出问题的那次）──', oplogPrev, '');
+  body.push('── 本次会话 ──', oplog.length ? oplog.join('\n') : '（这次还没有记录）');
+  return head.join('\n') + body.join('\n') + '\n';
+}
+function opOpen() {
+  opLog('日志', '打开操作日志');
+  const ov = $('logOverlay'), ta = $('logText');
+  if (!ov || !ta) return;
+  ta.value = opExport();
+  const h = $('logHint'); if (h) h.textContent = '';
+  ov.classList.add('show');
+}
+function opClose() { const ov = $('logOverlay'); if (ov) ov.classList.remove('show'); }
+function opHint(s) { const h = $('logHint'); if (h) h.textContent = s; }
+
+function opCopy() {
+  const ta = $('logText');
+  if (!ta) return;
+  let ok = false;
+  try {
+    ta.focus(); ta.select();
+    if (ta.setSelectionRange) ta.setSelectionRange(0, ta.value.length);
+    ok = document.execCommand ? document.execCommand('copy') : false;
+  } catch (e) { ok = false; }
+  if (!ok && typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(
+      () => opHint('已复制 —— 微信发给房主就行。'),
+      () => opHint('复制失败：手动长按上面的文字，选「全选 / 拷贝」。'));
+    return;
+  }
+  opHint(ok ? '已复制 —— 微信发给房主就行。' : '复制失败：手动长按上面的文字，选「全选 / 拷贝」。');
+}
+function opDownload() {
+  try {
+    const ta = $('logText'); if (!ta) return;
+    const blob = new Blob([ta.value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '生死转盘-操作日志.txt';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+    opHint('已存成文件（在「下载」目录里找）。');
+  } catch (e) { opHint('这台设备不支持存文件 —— 用「复制全文」代替。'); }
+}
+/* 发给房主：POST 到**加载本页的那台**服务器（同源，用相对路径）。
+   页面是 file:// 或本地小服务打开的 ⇒ 没有房主可发，提示改用复制。 */
+function opSendToHost() {
+  const text = opExport();
+  opLog('日志', '发给房主（' + text.length + ' 字）');
+  let nm = '';
+  try { nm = String(($('name') && $('name').value) || '').trim().slice(0, 20); } catch (e) {}
+  try {
+    fetch('clientlog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nm, text: text }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (d) {
+      opHint((d && d.ok) ? '已发给房主 ✓ —— 他在管理台「客户端日志」里能看到。'
+                        : '房主那边没收下：' + ((d && d.err) || '未知'));
+    }).catch(function () {
+      opHint('发不出去（本页不是从房主服务器加载的） —— 改用「复制全文」发给他。');
+    });
+  } catch (e) {
+    opHint('发不出去 —— 改用「复制全文」发给他。');
+  }
+}
+
+let ws = null, myId = null, joined = false, view = null;
+let resuming = false;        // 正在拿凭证换回原座位
+let wantSpectate = false;    // 用户在对局中选择「观战」进来
+let reconnectTimer = null, manualClose = false;
+/* 连续自动重连失败的次数。连不上就永远 3 秒一次地撞下去 = 界面一直在
+   「恢复中…/已断开」之间跳，玩家以为卡死（V18.3 日志里撞了 57 秒十几轮）。
+   到上限就停手，把入口还给玩家 —— 想再试自己点一次按钮。 */
+let reconnectFails = 0;
+const RECONNECT_MAX = 3;
+/* 「正在换协议重试」—— 明文连不上换加密（或反过来）时会先 close 旧的。
+   这跟「玩家主动离开」不是一回事：状态不该闪「已离开」，界面也不该弹回连接页。 */
+let switchingProto = false;
+/* 主动断开时想显示的那句话（比如「房间码不对」）。onclose 里用完即清。 */
+let manualConn = null;
+/* 协议是「猜」的（裸域名 + 页面推不出 https，典型是手机 App 里的 file://）。
+   连不上时换另一种协议再试一次 —— 只试一次，绝不无限翻转。 */
+let guessAlt = null, curP = null;
+let lastHostId = null;       // 用来发现房主迁移（房主掉线时服务端会自动换人）
+let rot = 0;                 // 转盘当前角度
+let queue = [], playing = false;   // 事件播放队列
+/* V18：被新连接顶掉的旧 socket 都扔这里 —— 它们的回调一律作废 */
+const dropped = new WeakSet();
+let serverOffset = 0;        // 服务端时间 − 本地时间
+let wheelBuilt = false, wheelKeys = '';
+
+/* ---------- 音效 ---------- */
+let audioOn = true, actx = null;
+function beep(freq, dur, type, vol) {
+  if (!audioOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.06, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+function tickSfx() { beep(1400 + Math.random() * 300, 0.03, 'square', 0.035); }
+const SFX = {
+  minus: () => beep(180, .3, 'sawtooth', .09),
+  plus:  () => beep(660, .18, 'triangle', .07),
+  death: () => { beep(90, .7, 'sawtooth', .14); setTimeout(() => beep(60, 1.1, 'sawtooth', .12), 180); },
+  full:  () => { beep(520, .12, 'sine', .07); setTimeout(() => beep(780, .22, 'sine', .07), 110); },
+  gold:  () => { beep(880, .1, 'square', .05); setTimeout(() => beep(1320, .2, 'square', .05), 90); },
+  feel:  () => { beep(700, .09, 'sine', .06); setTimeout(() => beep(1050, .14, 'sine', .06), 80); },
+  charm: () => { beep(300, .15, 'square', .08); setTimeout(() => beep(900, .35, 'sine', .09), 100); },
+  slip:  () => beep(260, .22, 'square', .07),
+  win:   () => { beep(520, .14, 'sine', .08); setTimeout(() => beep(780, .16, 'sine', .08), 130); setTimeout(() => beep(1180, .34, 'sine', .08), 270); },
+};
+
+/* ---------- 转盘绘制（外观，事件表来自服务端视图） ---------- */
+const wheel = $('wheel'), ring = $('ring');
+const NS = 'http://www.w3.org/2000/svg';
+function pt(cx, cy, r, deg) {
+  const a = (deg - 90) * Math.PI / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+function buildWheel(events) {
+  wheel.innerHTML = '';
+  const cx = 200, cy = 200, r = 186;
+  events.forEach((e, i) => {
+    const a0 = i * 72, a1 = a0 + 72, mid = a0 + 36;
+    const p0 = pt(cx, cy, r, a0), p1 = pt(cx, cy, r, a1);
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', `M${cx},${cy} L${p0[0]},${p0[1]} A${r},${r} 0 0 1 ${p1[0]},${p1[1]} Z`);
+    const st = WHEEL_STYLE[e.key] || { color: '#1b1b22' };
+    path.setAttribute('fill', st.color);
+    path.setAttribute('stroke', 'rgba(0,0,0,.55)');
+    path.setAttribute('stroke-width', '2');
+    wheel.appendChild(path);
+
+    const t = pt(cx, cy, r * 0.60, mid);
+    let rr = mid;
+    if (rr > 90 && rr < 270) rr += 180;
+    const tx = document.createElementNS(NS, 'text');
+    tx.setAttribute('x', t[0]); tx.setAttribute('y', t[1]);
+    tx.setAttribute('fill', i === 2 ? '#e8e6e1' : '#fff4e0');
+    tx.setAttribute('font-size', '17');
+    tx.setAttribute('font-weight', '700');
+    tx.setAttribute('text-anchor', 'middle');
+    tx.setAttribute('dominant-baseline', 'middle');
+    tx.setAttribute('transform', `rotate(${rr - 90} ${t[0]} ${t[1]})`);
+    tx.textContent = (WHEEL_STYLE[e.key] && WHEEL_STYLE[e.key].txt) || e.label;
+    wheel.appendChild(tx);   /* 必须是文字节点 tx —— t 是上面的坐标数组 [x,y]，插数组真浏览器会抛 TypeError */
+  });
+  const hub = document.createElementNS(NS, 'circle');
+  hub.setAttribute('cx', cx); hub.setAttribute('cy', cy); hub.setAttribute('r', 34);
+  hub.setAttribute('fill', '#0c0b10');
+  hub.setAttribute('stroke', getComputedStyle(document.body).getPropertyValue('--gold-dim').trim() || '#8d7538');
+  hub.setAttribute('stroke-width', '3');
+  wheel.appendChild(hub);
+  const ht = document.createElementNS(NS, 'text');
+  ht.setAttribute('x', cx); ht.setAttribute('y', cy + 1);
+  ht.setAttribute('fill', '#e8c26a'); ht.setAttribute('font-size', '13'); ht.setAttribute('font-weight', '700');
+  ht.setAttribute('text-anchor', 'middle'); ht.setAttribute('dominant-baseline', 'middle');
+  ht.textContent = '命运';
+  wheel.appendChild(ht);
+}
+function buildBulbs() {
+  ring.innerHTML = '';
+  for (let i = 0; i < 20; i++) {
+    const b = document.createElement('div');
+    b.className = 'bulb';
+    const a = (i / 20) * 360, R = 48.5;
+    b.style.left = `calc(50% + ${(R * Math.sin(a * Math.PI / 180)).toFixed(3)}% - 4.5px)`;
+    b.style.top = `calc(50% - ${(R * Math.cos(a * Math.PI / 180)).toFixed(3)}% - 4.5px)`;
+    ring.appendChild(b);
+  }
+}
+let bulbTimer = null, bulbsActive = false;
+function bulbsRun() {
+  const bs = [...ring.children];
+  if (!bs.length) return;
+  bulbsActive = true;
+  let i = 0;
+  clearTimeout(bulbTimer);
+  const step = () => {
+    if (!bulbsActive) return;
+    bs.forEach(b => b.classList.remove('on'));
+    bs[i % bs.length].classList.add('on');
+    bs[(i + 10) % bs.length].classList.add('on');
+    i++;
+    bulbTimer = setTimeout(step, 60 + Math.min(240, i * 4));
+  };
+  step();
+}
+function bulbsStop() {
+  bulbsActive = false;
+  clearTimeout(bulbTimer);
+  [...ring.children].forEach(b => b.classList.add('on'));
+  setTimeout(() => { if (!bulbsActive) [...ring.children].forEach(b => b.classList.remove('on')); }, 700);
+}
+
+/* ---------- 通信 ---------- */
+function setConn(text, cls) {
+  const el = $('conn');
+  el.textContent = text;
+  el.className = 'pill' + (cls ? ' ' + cls : '');
+  opLog('状态', text);
+}
+
+/* ---------- 视图切换（V17）----------
+   整套页面只有两个「屏」：
+     connectView —— 搜服务器 / 手动填地址 / 房间码。进房间之前看得到。
+     gameView    —— 游戏页（顶部血条对比 + 轮盘 + 三栏）。连上之后才显示。
+
+   规则很简单：**连着就显示游戏页，没连着就显示连接页**。
+   两个屏都是全屏的，所以不存在「一个盖住另一个」。
+
+   🔴 这里必须容错：init() 里任何一处抛异常都会让两个屏都不显示 —— 那样用户
+      看到的是一个空白页，连「填地址」的地方都找不到（V10 白屏事故同款）。
+      所以 showView 只依赖两个 id，且拿不到元素时静默跳过。 */
+function showView(which) {
+  /* 静默吞掉：这里是「最后的兜底」，吐日志反而会触发真机验收的 console.error 判据 */
+  try { showViewInner(which); } catch (e) { /* 两个屏都拿不到时不做什么 */ }
+}
+function showViewInner(which) {
+  const cv = $('connectView'), gv = $('gameView');
+  if (!cv || !gv) return;
+  const showGame = (which === 'game');
+  gv.classList.toggle('on', showGame);
+  cv.classList.toggle('on', !showGame);
+  /* 顶部工具条只在游戏页有意义；连接页上那些按钮会让人以为已经进游戏了 */
+  const tools = document.querySelector('.hdr-tools');
+  if (tools) tools.style.display = showGame ? '' : 'none';
+  /* 已经在别的服务器上时，连接页给一条「返回游戏」的退路 ——
+     否则他一进连接页就再也回不去（换服务器换到一半反悔） */
+  const hasLive = !!(ws && ws.readyState === 1);
+  const back = $('cvBackBtn');
+  if (back) back.style.display = (!showGame && hasLive) ? '' : 'none';
+  /* 已经在一台服务器上时写成「换服务器」——否则玩家会以为点它就要重连一次。 */
+  const cb = $('btnConnect');
+  if (cb) cb.textContent = hasLive ? '换服务器' : '连接服务器';
+  /* 进连接页时把搜索重新踢一脚 —— 否则可能停在上次那批结果上。
+     但别清空 discovered：那是「上一次真的搜到的」，闪一下比空着好。 */
+  if (!showGame) startDiscover();
+}
+
+function send(obj) {
+  /* 「想发」就记一笔（连没连上都在日志里）—— 排查「点了没反应」时，
+     是「压根没发出去」还是「发了服务器不理」全靠这一行区分。 */
+  opLog('→', (obj && obj.type ? obj.type : '?') + opBrief(obj));
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+/* ---------- 局域网服务器发现 ----------
+   ⚠️ 浏览器 / WebView 里的 JS **发不了 UDP 广播**（安全沙箱不允许），
+      所以「扫描局域网」这件事只能由原生层做，扫完喂给本页：
+        · 手机 App（安卓壳 Java）→ 扫完调 window.RR.onServers(json)
+        · PC 客户端（Node）      → 同上
+        · 纯浏览器打开           → 没有扫描能力，只能用下面的手动地址
+      桥的契约：
+        JS  → 原生   window.RRNative.startDiscover() / .stopDiscover()
+        原生 → JS    window.RR.onServers(json字符串或数组)
+      卡片字段：{id,name,host,port,players,watchers,phase,modeLabel,needCode} */
+let discovered = [];
+/* 不用扫就知道的服务器（「上次连过的」「本页就是这个服务器」）。
+   单独放一份 —— onServers 每轮都会整个替换 discovered，混在一起会被冲掉。 */
+let knownCards = [];
+let discoverTimer = null;
+
+function nativeBridge() {
+  return (typeof window !== 'undefined' && window.RRNative) ? window.RRNative : null;
+}
+function hasDiscover() {
+  const b = nativeBridge();
+  return !!(b && typeof b.startDiscover === 'function');
+}
+
+const NO_DISCOVERY_HINT =
+  '这个版本搜不了局域网 —— 网页里的 JS 发不了 UDP 广播。<br>' +
+  '手机装「生死转盘」App、电脑用「生死转盘-客户端」，打开就会自动列出来。<br>' +
+  '现在也可以用下面的「异地加入」手动填地址。';
+
+function startDiscover() {
+  const box = $('srvList');
+  if (!box) return;
+  clearTimeout(discoverTimer);
+  /* 有「已知服务器」卡片时先把它画出来 —— 搜索中的占位会把它冲掉，
+     而那张卡片恰恰是纯浏览器（没有扫描能力）时唯一的入口。 */
+  if (!hasDiscover()) {
+    box.innerHTML = '<div class="srvempty">' + NO_DISCOVERY_HINT + '</div>';
+    if (knownCards.length) {
+      renderServers();
+      /* 「这个版本搜不了局域网」的说明还得留着 —— 卡片下面再补一行，
+         否则纯浏览器里玩家会以为列表空了就没救了。 */
+      const h = document.createElement('div');
+      h.className = 'srvempty';
+      h.textContent = NO_DISCOVERY_HINT;
+      box.appendChild(h);
+    }
+    return;
+  }
+  box.innerHTML = '<div class="srvempty">正在搜索局域网里的服务器…</div>';
+  if (knownCards.length) renderServers();
+  try { nativeBridge().startDiscover(); } catch (e) {}
+  /* 8 秒还没回音 = 局域网里确实没有服务器在广播 */
+  discoverTimer = setTimeout(() => {
+    if (!discovered.length) {
+      box.innerHTML = '<div class="srvempty">没搜到服务器。确认两件事：' +
+        '① 电脑上的服务端开着；② 手机和电脑连的是同一个 WiFi' +
+        '（有些公共 WiFi / 校园网开了「AP 隔离」，同 WiFi 下设备互相看不见）。</div>';
+    }
+  }, 8000);
+}
+
+/* 原生层扫完调这个把结果送进来 */
+function onServers(raw) {
+  clearTimeout(discoverTimer);
+  let list = [];
+  try { list = (typeof raw === 'string') ? JSON.parse(raw) : (raw || []); } catch (e) { list = []; }
+  discovered = Array.isArray(list) ? list : [];
+  renderServers();
+}
+
+function renderServers() {
+  const box = $('srvList');
+  if (!box) return;
+  box.innerHTML = '';
+  const all = knownCards.concat(discovered);
+  if (!all.length) {
+    const d = document.createElement('div');
+    d.className = 'srvempty';
+    d.textContent = '还没搜到 —— 点右上角「重新搜索」，或确认电脑上的服务端开着。';
+    box.appendChild(d);
+    return;
+  }
+  all.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'srvcard';
+
+    const left = document.createElement('div');
+    const nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.textContent = c.name || '未命名服务器';
+    const mt = document.createElement('div');
+    mt.className = 'mt';
+    mt.textContent = c.known
+      ? (c.note || '点一下进入')
+      : (c.id || '') + ' · ' + (Number(c.players) || 0) + ' 人 · ' +
+        (c.phase === 'playing' ? '对局中' : '大厅中') +
+        (c.needCode ? ' · 需房间码' : '') +
+        (c.modeLabel ? ' · ' + c.modeLabel : '');
+    left.appendChild(nm);
+    left.appendChild(mt);
+
+    const badge = document.createElement('div');
+    badge.className = 'badge' + (c.phase === 'playing' ? '' : ' dim');
+    badge.textContent = c.known ? '进 入'
+      : ((c.phase === 'playing') ? '进 去 观 战' : '可 加 入');
+
+    card.appendChild(left);
+    card.appendChild(badge);
+    card.onclick = () => pickServer(c);
+    box.appendChild(card);
+  });
+}
+
+/* 「选中的服务器」—— 只活在内存里，绝不写进地址框。
+   🔴 规矩（V15）：**界面上不出现任何 IP / 协议字符串**。
+   地址框只装「用户自己敲进去」的东西；点卡片 / 本页服务器 / 上次连过的，
+   地址一律走 pendingAddr，界面上只显示名字。
+   （V14 之前是把 location.host 直接填进地址框的 —— 房主一打开就看见自己的 IP
+     挂在那儿，而且日志里还印整条 ws://10.x.x.x:8080。赐红要求去掉。） */
+let pendingAddr = '';
+let autoJoin = false;   /* 这次是「记住上次那台，自动进」吗？失败时不再死循环重试 */
+
+/* 服务端开房默认带的房间码（`server.js` 的 DEFAULT_ROOM_CODE）。
+   这里只用来**预填**房间码输入框 —— 房主没改过码时朋友直接点「进房间」就进去了，
+   省一次手敲。房主改过码的话输入框里是错的，他告诉你一声改掉即可。
+   版本不符也没关系：填错了顶多被服务端打回，不会连上错房间（房间码是门禁）。 */
+const DEFAULT_ROOM_CODE = '584520';
+
+/* 把一张卡片变成可回放的地址（加密的要带 wss:// 前缀，否则下次会退化成明文） */
+function addrOf(c) {
+  return (c.secure ? 'wss://' : '') + c.host + ':' + (c.port || DEFAULT_PORT);
+}
+
+/* 「上次连过的 / 本页所在的」这类不用扫就知道的服务器，做成一张卡片塞进列表。
+   注意它带 known 标记 —— 没有人数、没有阶段，别去编。 */
+function knownCard(label, raw, note) {
+  const p = parseAddr(raw);
+  if (!p) return null;
+  return {
+    known: true, name: label, note: note || '',
+    host: p.host, port: Number(p.port) || Number(DEFAULT_PORT), secure: !!p.secure,
+    id: '', players: 0, phase: '', modeLabel: '', needCode: false,
+  };
+}
+
+/* 点了一张服务器卡片。要房间码就弹浮层问，不要就直接连。 */
+function pickServer(c) {
+  if (!c || !c.host) return;
+  pendingAddr = addrOf(c);
+  dropTypedAddr(c.name);
+  if (c.needCode) {
+    $('codeTitle').textContent = c.name || '需要房间码';
+    /* 房主没改过码时服务端用的是内置默认码（584520）。预填上它能省一次手输：
+       对上了直接点「进房间」，房主改过码的话他会当场告诉你新码，改一下就行。 */
+    $('codeInput').value = DEFAULT_ROOM_CODE;
+    $('codeOverlay').classList.add('show');
+    try { $('codeInput').focus(); $('codeInput').select(); } catch (e) {}
+    return;
+  }
+  $('pass').value = '';
+  connect(pendingAddr);
+}
+
+/* 点卡片 = 明确换目标：地址框里那个旧的不再作数。
+   🔴 不清的话，下次再点任何卡片都会被它劫持（connect 里「手填优先」）——
+      玩家点来点去全在撞那一个地址，而地址框里那串还好好地躺在那儿骗人。 */
+function dropTypedAddr(name) {
+  if (!$('addr').value.trim()) return;
+  $('addr').value = '';
+  log('改连「' + (name || '刚才选的那台') + '」了 —— 地址框里上次填的那个已清掉。', '#e8c26a');
+}
+
+/* ---------- 把桥暴露给原生层 ---------- */
+if (typeof window !== 'undefined') {
+  window.RR = {
+    onServers: onServers,
+    hasBridge: hasDiscover,
+    /* 原生层可以调它问「页面准备好了吗」，避免扫完时页面还没加载 */
+    ready: function () { return true; },
+  };
+}
+
+/* 把用户可能填的各种形态统一成 { addr, secure }：
+     addr   = host:port（拼进 WebSocket 网址的那一段）
+     secure = true 走 wss://，false 走 ws://
+   返回 null = 实在看不懂。
+
+   规则（V14 定的，三条都要，缺一条就会拼出死地址）：
+     ① 带协议头 → **尊重协议**，默认端口跟着协议走（http/ws→80，https/wss→443），
+        绝不补 8080。历史坑：https://xxx.cpolar.cn 补成 :8080 就是死地址。
+     ② 裸 IP（含 localhost）→ 补 8080，明文。局域网服务端默认就这个端口。
+     ③ 裸域名 → **跟随当前页面协议**：页面是 https 就 wss + 443，否则 ws + 80。
+        （朋友用浏览器打开穿透给的 https 网址时，location.host 自动填进来的
+          正是裸域名 —— 必须跟着页面走 wss，否则浏览器会以「混合内容」拦掉。）
+        手机 App 里页面是 file://，推不出协议 ⇒ 标 guessed=true，
+        连不上时自动换另一种协议再试一次（见 connect 的 guessAlt）。
+
+   （更早的历史坑：服务端横幅印的是 http://ip:8080，用户整行复制进来，
+     拼出 ws://http://ip:8080 —— 必错。所以这里必须剥协议头。） */
+const DEFAULT_PORT = '8080';
+const RE_IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+function parseAddr(s) {
+  let a = String(s == null ? '' : s).trim();
+  if (!a) return null;
+
+  let secure = null;                                     /* null = 没写协议，待定 */
+  const m = a.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//);
+  if (m) {
+    const scheme = m[1].toLowerCase();
+    if (scheme === 'https' || scheme === 'wss') secure = true;
+    else if (scheme === 'http' || scheme === 'ws') secure = false;
+    else return null;                                    /* ftp:// 之类：不装懂 */
+    a = a.slice(m[0].length);
+  }
+
+  a = a.replace(/[/?#].*$/, '').replace(/\s+/g, '');      /* 去路径 / 查询串 / 空格 */
+  if (!a || !/^[^\s/?#]+$/.test(a)) return null;
+
+  const pm = a.match(/:(\d+)$/);
+  const port = pm ? pm[1] : null;
+  const host = pm ? a.slice(0, -(pm[0].length)) : a;
+  if (!host || /^\d+$/.test(host)) return null;           /* 光一串数字不是地址 */
+
+  const isIp = RE_IPV4.test(host) || host === 'localhost';
+  let guessed = false;
+  if (secure === null) {
+    const pageSecure = (typeof location !== 'undefined' && location.protocol === 'https:');
+    secure = isIp ? false : !!pageSecure;
+    guessed = !isIp;                                      /* 域名的协议是猜的 */
+  }
+  let defaulted = false;
+  if (!port) {
+    defaulted = true;
+    a = host + ':' + (isIp ? DEFAULT_PORT : (secure ? '443' : '80'));
+  } else {
+    a = host + ':' + port;
+  }
+  return { addr: a, secure: secure, host: host, port: port || a.split(':').pop(), defaulted: defaulted, guessed: guessed };
+}
+
+/* 老接口：只回 host:port（旧调用点 / 旧断言在用）。 */
+function normalizeAddr(s) {
+  const r = parseAddr(s);
+  return r ? r.addr : null;
+}
+
+/* 「猜错了协议」时的另一种可能：换协议；端口是自动补的就连端口一起换。 */
+function altOf(p) {
+  const port = p.defaulted ? (p.secure ? '80' : '443') : p.port;
+  return { addr: p.host + ':' + port, secure: !p.secure };
+}
+/* 存进 ADDR_KEY 的形式：secure 时带 wss:// 前缀，下次回填时还能还原加密这个事实。 */
+function canonicalOf(p) {
+  return (p.secure ? 'wss://' : '') + p.addr;
+}
+
+/* 「自动进上次那台」没成功 → 停下，把入口还给玩家。
+   绝不能让它走 onclose 的 3 秒重连：那会变成后台无限重试，玩家还以为卡死了。 */
+function giveUpAutoJoin() {
+  if (!autoJoin) return false;
+  autoJoin = false;
+  manualClose = true;
+  try { if (ws) ws.close(); } catch (e) {}
+  clearTimeout(reconnectTimer);
+  setConn('没连上', 'off');
+  /* V17：自动进失败 = 没连上 ⇒ 把连接页放回来，让人能重新选一台 */
+  showView('connect');
+  log('上次那台服务器现在没开着 —— 从上面列表里选一台，或者手动填地址。', '#e8c26a');
+  render();
+  return true;
+}
+
+/* 真正开一条连接。secure 决定 ws:// 还是 wss:// —— 页面走 https 时必须 wss，
+   否则浏览器会以「混合内容」直接拒绝。 */
+function openSocket(addr, secure) {
+  const url = (secure ? 'wss' : 'ws') + '://' + addr;
+  curP = { addr: addr, secure: secure };
+  /* 只记「加密还是明文、是不是在恢复」—— 地址一个字都不进日志 */
+  opLog('网络', '开始连接（' + (secure ? '加密 wss' : '明文 ws') + (session && session.token ? ' · 带凭证恢复' : '') + '）');
+
+  /* V18：**开新连接前必须先收掉旧的那条。**
+     否则「进来时自动连上次那台」+「玩家又在列表里点了一次」会同时留下两条连接，
+     服务器那边同一个人分成两个座位 —— 其中一个永远没人操作：
+     转也转不动、退也退不掉，界面上却好好地挂在名单里。 */
+  if (ws) {
+    dropped.add(ws);      // 这条已经被顶替：它之后的任何回调都不再作数
+    try { ws.close(); } catch (e) {}
+    ws = null;
+  }
+  clearTimeout(reconnectTimer);
+  manualClose = false;
+  switchingProto = false;
+  resuming = !!session.token;
+  setConn(resuming ? '恢复中…' : '连接中…', '');
+  /* 日志里不印地址（V15）—— 那串东西就是房主的 IP，屏幕上不该出现 */
+  log(resuming ? '正在恢复你的角色…' : '正在连接…', resuming ? '#e8c26a' : undefined);
+
+  let sock;
+  try { sock = new WebSocket(url); }
+  catch (e) { setConn('地址错误', 'off'); log('地址格式错误：' + e.message, '#e5383b'); return; }
+  ws = sock;
+
+  /* 这条 socket 是不是已经被后来那条顶替了？
+     判据是「有没有被登进这张被弃名单」，而不是「是不是当前那一条」——
+     后者会把刚建好的连接误判成旧的：有些环境（含我们自己的测试替身）
+     在 new WebSocket() 还没返回时就同步抛 onerror，那时 ws 还没指过来。 */
+  const superseded = () => dropped.has(sock);
+
+  ws.onopen = () => {
+    if (superseded()) return;
+    autoJoin = false;                  /* 连上了就不再是「自动进」的尝试 */
+    reconnectFails = 0;                /* 连上了就把「连续失败」的账清零 */
+    setConn(resuming ? '恢复中…' : '已连接', resuming ? '' : 'on');
+    /* V17：连上了就切到游戏页 —— 连接屏（搜索 / 地址栏）整块收走，
+       不再占用游戏布局。进不去房（比如房间码错）时服务端会退回断线，
+       onclose 再把连接屏放回来。 */
+    showView('game');
+    if (!resuming) log('连接成功，正在进入房间…', '#52b788');
+    /* 连上了就把这条（可能换过协议的）地址记下来，下次进来直接用对的那个 */
+    try { SS.setItem(ADDR_KEY, (secure ? 'wss://' : '') + addr); } catch (e) {}
+    send({
+      type: 'join',
+      name: $('name').value.trim() || '无名氏',
+      /* 观战身份下不拿旧凭证去撞门（那是座位凭证，观战是另一条路） */
+      token: wantSpectate ? undefined : (session.token || undefined),
+      pass: $('pass').value.trim() || undefined,
+      spectate: wantSpectate || undefined,
+    });
+  };
+  /* 一条连接只认**第一次** close。
+     真实浏览器里 close 只来一次，但补发的 / 被代理搞乱的环境会来第二次 ——
+     那时「换协议」这个一次性标记已经被第一次吃掉了，第二次会被当成
+     「正常断开」再计一次失败、再排一次重连，把换协议那条路整个挤掉。 */
+  let closeHandled = false;
+  ws.onclose = () => {
+    if (superseded()) return;
+    if (closeHandled) return;
+    closeHandled = true;
+    joined = false;
+    if (manualClose) {
+      /* 换协议重试是**我们自己**关的旧连接，不是玩家离开 ——
+         状态保持「连接中」，界面也别弹回连接页（否则每换一次协议就闪一下）。 */
+      if (switchingProto) { switchingProto = false; manualClose = false; return; }
+      setConn(manualConn || '已离开', 'off'); manualConn = null; showView('connect'); return;
+    }
+    if (autoJoin) { opLog('网络', '自动连接失败，放弃自动重连'); giveUpAutoJoin(); return; }
+    reconnectFails++;
+    if (reconnectFails >= RECONNECT_MAX) {
+      opLog('网络', '连续 ' + reconnectFails + ' 次没连上，停手（要再试请自己点一次）');
+      setConn('没连上', 'off');
+      showView('connect');
+      log('这台连不上 —— 地址对不对、电脑上的服务端开着吗？想再试就点一次「连接这个地址」。', '#e5383b');
+      render();
+      return;
+    }
+    opLog('网络', '连接断开（' + (RECONNECT_MAX - reconnectFails) + ' 次机会内会自动重连）');
+    setConn('已断开', 'off');
+    log('连接断开，3 秒后自动重连（你的角色会被原样恢复）…', '#e5383b');
+    render();
+    /* 重连必须**显式带上刚才那台**，否则地址框里残留的旧值会把它劫持到别处 */
+    const again = curP ? (curP.secure ? 'wss://' : '') + curP.addr : '';
+    clearTimeout(reconnectTimer);   /* 有些环境 error 之后会再给一次 close，别落下两个定时器 */
+    reconnectTimer = setTimeout(() => connect(again, '重连刚才那台', true), 3000);
+  };
+  ws.onerror = () => {
+    if (superseded()) return;
+    /* 协议是猜的 → 换另一种（必要时连端口一起换）再试一次，只试一次 */
+    if (guessAlt) {
+      const alt = guessAlt;
+      guessAlt = null;                       // 只翻一次，绝不来回翻
+      manualClose = true;
+      switchingProto = true;                 // 这次 close 是我们自己换协议，不是玩家离开
+      try { ws.close(); } catch (e) {}
+      log('连不上，换 ' + (alt.secure ? 'wss（加密）' : 'ws（明文）') + ' 再试一次…', '#e8c26a');
+      setTimeout(() => openSocket(alt.addr, alt.secure), 250);
+      return;
+    }
+    if (giveUpAutoJoin()) return;
+    opLog('网络', '连接出错（连不上 / 被拒）');
+    log('连接出错（检查地址、防火墙、服务是否在跑）', '#e5383b');
+  };
+  ws.onmessage = e => {
+    if (superseded()) return;
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    opLog('←', (m && m.type ? m.type : '?') + opBrief(m));
+    handle(m);
+  };
+}
+
+/* force = 明确指定的目标（点卡片 / 点「进 入」/ 房间码浮层点确定）。
+   🔴 它必须**压过地址框里残留的旧值**：否则只要玩家曾经手填过一次地址，
+      之后点任何卡片都还在连那个旧地址 —— 卡片形同虚设，玩家点什么都没反应
+      （V18.3 日志：连点 #srvList 卡片，记的全是「准备连接：手填的地址」）。 */
+/* isRetry = 这次是**代码自己**发起的自动重连。它必须跳过下面那道
+   「同一台正在连就别重复开」的拦截 —— 那道拦截是防玩家连点按钮的，
+   把自己发起的重连也拦掉的话，自动重连就永远连不出去。 */
+function connect(force, note, isRetry) {
+  /* 用户自己敲的优先；没敲就用「选中的那台」（点卡片 / 本页 / 上次连过的）。
+     注意：只有用户敲过才回写地址框 —— 否则等于把内存里的 IP 又摊到界面上。 */
+  const typed = force ? '' : $('addr').value.trim();
+  const raw = force || typed || pendingAddr;
+  if (!raw) {
+    opLog('网络', '点了连接，但一个目标都没有（没手填、也没选中卡片）');
+    log('先点一张上面的服务器卡片；异地的朋友在下面「异地加入」里填地址。', '#e5383b'); return;
+  }
+  const p = parseAddr(raw);
+  if (!p) {
+    opLog('网络', '地址解析失败（手填的那串看不懂）');
+    log('地址看不懂 —— 应该长这样 192.168.1.5:8080 或 abc.cpolar.cn', '#e5383b'); return;
+  }
+  const canon = canonicalOf(p);
+  if (typed && canon !== raw) $('addr').value = canon;   /* 顺手把清洗结果显示出来 */
+  /* 同一台正在连（CONNECTING）就别再重复开一条 —— 玩家连点按钮时最容易出现，
+     开出来七八条互相顶替，界面上却一点变化都没有。 */
+  if (!isRetry && ws && ws.readyState === 0 && curP && curP.addr === p.addr && curP.secure === p.secure) {
+    opLog('网络', '已经在连这台了（重复点击被忽略）');
+    log('正在连接中 —— 稍等一下就好。', '#e8c26a');
+    return;
+  }
+  try { SS.setItem(ADDR_KEY, canon); } catch (e) {}   // 记住地址，下次进来自动填好
+  guessAlt = p.guessed ? altOf(p) : null;
+  opLog('网络', '准备连接：' + (note || (force || !typed ? '选中的服务器' : '手填的地址'))
+    + (p.guessed ? '（协议是猜的，失败会换另一种再试一次）' : ''));
+  openSocket(p.addr, p.secure);
+}
+function handle(m) {
+  if (m.type === 'welcome') {
+    myId = m.you; joined = true; resuming = false;
+    /* 已经进房了，别再扫局域网 —— 一直广播白耗电（原生壳里才有这一步） */
+    if (hasDiscover()) { try { nativeBridge().stopDiscover(); } catch (e) {} }
+    if (m.token) saveSession(m.you, m.token, $('name').value.trim());
+    applyView(m.view);
+    const asHost = m.view.room.hostId === myId ? ' · 房主' : '';
+    if (m.spectator) {
+      wantSpectate = true;
+      setConn(m.resumed ? '观战中' : '已连接', 'on');
+      if (m.resumed && m.leftMatch) {
+        log('已恢复观战身份（你上次退出了本局）· 编号 ' + myId, '#4d8fd6');
+        banner('已恢复你的观战身份', '#4d8fd6');
+      } else if (m.resumed) {
+        log('已恢复观战身份 · 编号 ' + myId, '#4d8fd6');
+        banner('已恢复观战身份', '#4d8fd6');
+      } else {
+        log('已进入房间 · 观战身份 · 编号 ' + myId + asHost, '#4d8fd6');
+      }
+    } else if (m.resumed) {
+      wantSpectate = false;
+      setConn('已恢复', 'on');
+      log('已恢复你的角色 · 编号 ' + myId + '（' + nameOfAny(myId) + '）' + asHost, '#52b788');
+      banner('已恢复你的角色', '#52b788');
+    } else {
+      wantSpectate = false;
+      setConn('已连接', 'on');
+      log('已加入房间 · 你的编号 ' + myId + (m.view.room.hostId === myId ? '（房主）' : ''), '#52b788');
+    }
+    return;
+  }
+  if (m.type === 'sync') {
+    applyView(m.view);
+    enqueue(m.events || []);
+    return;
+  }
+  if (m.type === 'left-room') {
+    /* 退出观战：断开连接，回到加入栏 */
+    manualClose = true;
+    joined = false; myId = null; view = null; wantSpectate = false; lastHostId = null;
+    try { if (ws) ws.close(); } catch (e) {}
+    setConn('已离开', 'off');
+    $('watchBar').classList.remove('show');
+    $('leaveOverlay').classList.remove('show');
+    log('你已离开这个房间。想回来就填好名字再点「进入房间」。', '#8e8a82');
+    render();
+    return;
+  }
+  if (m.type === 'rejected') {
+    /* 凭证失效：清掉本地凭证，别再拿它反复撞门 */
+    if (m.reason === 'bad-token') { try { SS.removeItem(SESSION_KEY); } catch (e) {} session = {}; }
+    /* 🔴 V18.1：房间码不对 = 这条连接已经没用了，必须自己收掉。
+       服务端回完 rejected 就把这条连接晾着（它只 return，不 close），
+       于是界面一直显示「已连接」、还切到了游戏页，玩家根本不知道自己被挡在门外；
+       更糟的是连接一直 OPEN ⇒ 再点「连接这个地址」会被旧逻辑当成「断开」。
+       现在：断开 + 回到连接页 + 状态写成「房间码不对」，玩家改完码再点一次就行。 */
+    if (m.reason === 'bad-room-code') {
+      opLog('房间码', '被服务端拒绝（码不对）');
+      log('房间码不对 —— 问房主要正确的码，改完再点一次「连接这个地址」', '#e5383b');
+      manualConn = '房间码不对';
+      manualClose = true;
+      joined = false; myId = null; view = null;
+      try { if (ws) ws.close(); } catch (e) {}
+      render();
+      return;
+    }
+    /* 对局中：给一条「进来观战」的路，而不是把人堵在门口 */
+    if (m.canSpectate && (m.reason === 'game-in-progress' || m.reason === 'bad-token')) {
+      log('服务器拒绝：' + (REJECT_TEXT[m.reason] || m.reason), '#e5383b');
+      openSpectateOffer(m);
+      return;
+    }
+    log('服务器拒绝：' + (REJECT_TEXT[m.reason] || m.reason)
+      + (m.names && m.names.length ? '（' + m.names.join('、') + '）' : ''), '#e5383b');
+    render();
+    return;
+  }
+}
+
+/* ---------- 对局中进房：问一句要不要观战 ---------- */
+function openSpectateOffer(m) {
+  const who = (m.players || []).join('、');
+  $('spectateSub').innerHTML = '「' + esc(m.modeLabel || '对局') + '」正在打'
+    + (who ? ' —— 场上：' + esc(who) : '')
+    + '。<br>你可以以<b style="color:#6fb3e8">观战</b>身份进去看，看不了别人的手牌，但能看全场牌面；'
+    + '观战不能转动、不能购物，随时可以退出。';
+  $('spectateOverlay').classList.add('show');
+}
+function applyView(v) {
+  view = v;
+  if (v.serverNow != null) serverOffset = v.serverNow - Date.now();
+  render();
+}
+
+/* ---------- 事件播放队列（动画只是重演，不改任何状态） ---------- */
+/* 上一条带 playerId 的事件是不是「我那一转的后续」。
+   V18：各自轮盘（race）里，别人的演出不该堵住我的手 —— 只有我自己的连锁
+   事件才锁得住我的按钮。判断的办法很简单：看事件的归属人变了没有。 */
+let myChain = false;
+/* 共享轮盘（turn）才是全场一个盘：那种模式下谁转都得占用这块转盘，
+   所以我必须等别人演完。race 各转各的盘，不必等。 */
+function sharedWheel() {
+  return !!(view && view.match && view.match.mode === 'turn');
+}
+/* 我此刻能不能动自己的东西（转盘 / 商城 / 药水） */
+function selfBusy() {
+  return sharedWheel() ? (playing || queue.length > 0) : myChain;
+}
+function enqueue(events) {
+  if (events && events.length) for (let i = 0; i < events.length; i++) queue.push(events[i]);
+  if (!playing) drain();
+}
+function drain() {
+  const ev = queue.shift();
+  if (!ev) { playing = false; myChain = false; render(); return; }
+  playing = true;
+  let wait = 0;
+  /* 🔴 单条演出再怎么崩，也不能把整条队列冻住：
+     step() 里抛异常 ⇒ 这一行下面的 setTimeout 排不上 ⇒ playing 永远是 true
+     ⇒ 从此以后服务端推来的任何事件都播不出来（界面看着像连着，实际已经哑了）。
+     所以这里兜住，把问题摆到记录里，让下一条照常播。 */
+  try { wait = step(ev); }
+  catch (e) { try { log('⚠ 演出中断：' + (e && e.message ? e.message : e), '#e5383b'); } catch (e2) {} }
+  setTimeout(drain, wait);
+}
+function step(ev) {
+  const who = ev.playerId ? pname(ev.playerId) : '';
+  const mine = ev.playerId === myId;
+  /* 归属人一换，连锁就断了 */
+  if (ev.playerId != null) myChain = mine;
+
+  switch (ev.t) {
+    case 'start':
+      /* 🔴 这里**不能**清空 queue。
+         队列是从头往后取的：轮到某一条事件时，排在它前面的早播完了，
+         一句 queue.length = 0 能清掉的只有排在它**后面**的那些 —— 也就是
+         还没来得及播的新事件。机器慢 / 连点多几下，队列中段就会积压，
+         这时回到大厅会把紧随其后的「赌局开始」「退出了本局」「结算」整批吃掉，
+         玩家看到的是界面放完之后什么都没了。要丢弃"上一局的残留"，
+         正确做法是过滤 time < startedAt，而不是把后面的一起砍掉。 */
+      resetTable();
+      log('赌 局 开 始 · ' + modeLabel() + ' · ' + (view.match.order.length) + ' 人', '#e8c26a');
+      banner('赌局开始', '#e8c26a');
+      return 700;
+    case 'lobby':
+      /* 同上：这里也绝不清队列。 */
+      resetTable();
+      log('回到大厅，可以重新配置', '#8e8a82');
+      render();
+      return 300;
+    case 'freeze': {
+      const who = (ev.offline || []).map(pname).join('、');
+      log('❄ 封存：' + who + ' 掉线了 —— 计时停摆，动作全部冻结，等他回来', '#e8c26a');
+      banner('赌局已封存', '#8d7538');
+      render();
+      return 200;
+    }
+    case 'thaw': {
+      const sec = Math.round((ev.pausedMs || 0) / 1000);
+      log('☀ 解封：全员到齐，继续对局' + (sec > 0 ? '（刚才停了 ' + sec + ' 秒，不计入成绩）' : ''), '#52b788');
+      banner('已恢复对局', '#52b788');
+      render();
+      return 200;
+    }
+    case 'leave':
+      log((ev.name || pname(ev.playerId)) + ' 退出了本局 · 转观战'
+        + (ev.left != null ? '（场上还剩 ' + ev.left + ' 人）' : ''), '#4d8fd6');
+      render();
+      return 200;
+    case 'watch':
+      log((ev.joined ? '👁 ' + ev.name + ' 进来观战' : '👁 ' + ev.name + ' 退出了观战'), '#4d8fd6');
+      render();
+      return 160;
+    case 'config':
+      /* 服务器名称 / 房间码被房主改了。服务器编号不变，所以不用提示编号。 */
+      log('⚙ ' + pname(ev.by) + ' 改了服务器设置：'
+        + '名称「' + ((view && view.room && view.room.name) || '—') + '」'
+        + ((view && view.room && view.room.code) ? '，房间码「' + view.room.code + '」' : '，无房间码'),
+        '#e8c26a');
+      render();
+      return 140;
+    case 'roll': {
+      /* V18：死神追猎是「各自轮盘」—— 别人掷的那一下既不该占用我这块转盘，
+         也不该把我的按钮锁上四秒半（那就是"一个人在转，全场干等"的来源）。
+         别人的结果进消息队列就够了，不算演出、不占转盘。
+         共享轮盘（对赌轮盘）反过来：全场同一个盘，谁转都得当真。 */
+      if (!sharedWheel() && !mine) {
+        log(`${who} 掷出 → ${ev.label}` + (ev.counted === false ? '（转数被香蕉皮压住）' : ''), wheelColor(ev.key));
+        return 150;
+      }
+      const idx = ev.idx;
+      const c = idx * 72 + 36;
+      const base = ((rot % 360) + 360) % 360;
+      const delta = ((-c - base) % 360 + 360) % 360;
+      rot += 360 * 6 + delta + (Math.random() * 54 - 27);
+      wheel.style.transform = 'rotate(' + rot + 'deg)';
+      bulbsRun();
+      setTimeout(bulbsStop, 4300);   // 转盘停稳，灯泡收工
+      let t = 0, gap = 70;
+      const ticker = setInterval(() => {
+        if (!audioOn) return;
+        tickSfx(); t++;
+        if (t > 8) gap += 26;
+        if (t > 34) clearInterval(ticker);
+      }, gap);
+      setTimeout(() => clearInterval(ticker), 4400);
+
+      $('result').className = 'result idle';
+      $('result').textContent = mine ? '命运正在转动…' : who + ' 的命运正在转动…';
+      log(`${who} 掷出 → ${ev.label}` + (ev.counted === false ? '（转数被香蕉皮压住）' : ''), wheelColor(ev.key));
+      return 4350;
+    }
+    case 'slip':
+      log(`${who} 踩到香蕉皮 · 这一转转数不涨（还剩 ${ev.left} 次）`, '#c8a24a'); SFX.slip(); return 200;
+    case 'scythe':
+      if (ev.blockedByCharm) { log(`${who} 镰刀挥下 · 护符碎裂，生命锁在 1`, '#e8c26a'); SFX.charm(); }
+      else { log(`${who} 镰刀挥下 · 先扣 ${ev.amount} 滴血 → 剩余 ${ev.hp}`, '#e5383b'); if (ev.hp > 0) SFX.minus(); }
+      if (mine) banner(`镰刀先落下 · 扣 ${ev.amount} 滴`, '#e5383b');
+      return 260;
+    case 'scytheArmed':
+      log(`☠ 镰刀加重：第 ${ev.dmg === 2 ? 81 : 91} 转起每转先扣 ${ev.dmg} 滴`, '#e5383b');
+      herald('「接下来就没那么容易了！」', `镰刀加重 · 此后每转转动前先扣 <b>${ev.dmg}</b> 滴血`);
+      return 600;
+    case 'damage':
+      if (ev.blockedByCharm) { log(`${who} 扣 ${ev.amount} 滴血 本是致命伤 · 护符挡下`, '#e8c26a'); SFX.charm(); }
+      else {
+        log(`${who} 扣 ${ev.amount} 滴血 → 剩余 ${Math.max(0, ev.hp)}`, '#e5383b');
+        if (ev.hp > 0) SFX.minus();
+        if (mine) banner(`扣 ${ev.amount} 滴血`, '#e5383b');
+      }
+      return 260;
+    case 'heal':
+      if (ev.overflow) log(`${who} 加 ${ev.amount} 滴血 · 已满，溢出`, '#6f6b64');
+      else log(`${who} 加 ${ev.amount} 滴血 → ${ev.to}`, ev.amount === 2 ? '#4d8fd6' : '#52b788');
+      SFX.full();
+      if (mine && !ev.overflow) banner(`加 ${ev.amount} 滴血`, '#52b788');
+      return 260;
+    case 'gold':
+      log(`${who} 获得 ${ev.amount} 金币`, '#e8c26a'); SFX.gold(); return 200;
+    case 'interest':
+      log(`${who} 死神利息：本金 ${fmtGold(ev.principal)} → +${fmtGold(ev.amount)} 金`, '#c8a24a'); return 180;
+    case 'buy':
+      log(`${who} 买了 ${shopName(ev.itemId)}（−${ev.cost} 金）`, '#e8c26a'); SFX.feel(); return 200;
+    case 'banana':
+      log(`🍌 ${who} 把香蕉皮扔给了 ${pname(ev.targetId)}（挂着 ${ev.left} 次）`, '#c8a24a'); return 200;
+    case 'rewind':
+      log(`${who} 减少转数 ${ev.from} → ${ev.to}（本局剩 ${ev.limit - ev.used} 次）`, '#52b788'); return 220;
+    case 'potion':
+      log(`${who} 使用生命药水 → 生命回满至 ${ev.to}`, '#52b788'); SFX.full(); return 240;
+    case 'milestone':
+      log(`【第 ${ev.n} 转】死神降临`, '#e8c26a'); return 300;
+    case 'death':
+      log(`${who} 死 亡` + (ev.cause === 'scythe' ? '（镰刀先一步落下）' : ''), '#e5383b');
+      SFX.death();
+      if (mine) banner('你 死 了', '#e5383b');
+      return 500;
+    case 'finished':
+      log(`${who} 走完 100 转 · 用时 ${fmtMs(ev.survivalMs)}`, '#52b788'); SFX.win(); return 400;
+    case 'over':
+      log('对局结束 · ' + (ev.winnerId ? pname(ev.winnerId) + ' 获胜' : '无人胜出')
+        + '（' + (REASON_TEXT[ev.reason] || ev.reason) + '）', '#e8c26a');
+      setTimeout(showEnd, 500);
+      return 900;
+    default:
+      return 0;
+  }
+}
+function wheelColor(key) {
+  const m = { minus1: '#c9452f', plus1: '#52b788', minus2: '#e5383b', plus2: '#4d8fd6', gold: '#e8c26a' };
+  return m[key] || '#a8a49c';
+}
+function shopName(id) {
+  const it = view && meShop().find(s => s.id === id);
+  if (it) return it.name;
+  const fallback = { charm: '免死护符', potion: '生命药水', rewind: '减少转数', banana: '香蕉皮' };
+  return fallback[id] || id;
+}
+function modeLabel() {
+  return (view && view.room && view.room.modeLabel) || '—';
+}
+function pname(id) {
+  if (view && view.match) {
+    const p = view.match.players.find(x => x.id === id);
+    if (p) return p.name;
+  }
+  return id || '—';
+}
+/* 房间成员的名字：玩家名单里找不到，就去观战席里找 */
+function nameOfAny(id) {
+  if (id == null) return '—';
+  const n = pname(id);
+  if (n !== id) return n;
+  const w = ((view && view.watchers) || []).find(x => x.id === id);
+  return w ? w.name : id;
+}
+/* 我现在是玩家还是观战者？纯推导 —— 对局中不在玩家名单里就是观战者。
+   （这样服务端不用额外推一条「你的身份变了」，大厅/对局两个阶段都对得上。） */
+function myRole() {
+  if (!view || !myId) return 'none';
+  if (view.room.phase === 'lobby') return 'player';   // 大厅里人人都在名单上
+  return view.match.players.some(p => p.id === myId) ? 'player' : 'watcher';
+}
+function me() {
+  if (!view || !myId) return null;
+  return view.match.players.find(p => p.id === myId) || null;
+}
+function meShop() { const m = me(); return (m && m.shop) || []; }
+
+function banner(text, color) {
+  const el = $('result');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.borderColor = color + '55';
+  el.style.background = color + '14';
+  el.className = 'result show';
+}
+
+/* ---------- 渲染 ---------- */
+let tick = 0;
+function log(msg, color) {
+  const el = $('log');
+  if (!el) return;
+  const d = document.createElement('div');
+  d.innerHTML = `<span class="t">${String(++tick).padStart(3, '0')}</span><span style="color:${color || '#a8a49c'}">${esc(msg)}</span>`;
+  el.insertBefore(d, el.firstChild);
+  el._html = el.innerHTML;
+}
+function resetTable() {
+  rot = 0;
+  wheel.style.transition = 'none';
+  wheel.style.transform = 'rotate(0deg)';
+  void wheel.offsetWidth;
+  wheel.style.transition = 'transform 4.3s cubic-bezier(.13,.72,.03,1)';
+  $('log').innerHTML = '';
+  $('result').className = 'result idle';
+  $('result').textContent = '等待命运裁决';
+  $('result').style.background = 'transparent';
+  $('result').style.borderColor = 'transparent';
+  $('endOverlay').classList.remove('show');
+  $('rankPanel').style.display = 'none';
+  tick = 0;
+}
+
+/* ---------- 封存（掉线等待） ---------- */
+function offlineNames(M) {
+  return M.order
+    .filter(id => { const p = M.players.find(x => x.id === id); return p && !p.connected; })
+    .map(id => pname(id));
+}
+function renderFreeze(M, frozen) {
+  const bar = $('freezeBar');
+  if (!frozen) { bar.classList.remove('show'); return; }
+  const off = offlineNames(M);
+  const mins = M.frozenSince ? Math.max(0, Math.floor((Date.now() + serverOffset - M.frozenSince) / 60000)) : 0;
+  const isHost = view && view.room.hostId === myId;
+  $('freezeWho').innerHTML = '<i>' + esc(off.join('、')) + '</i> 掉线了 —— 已暂停计时与结算，'
+    + '等他重连回来即刻继续'
+    + (mins >= 1 ? '<br>已等待 ' + mins + ' 分钟' : '')
+    + (M.pausedMs > 0 ? ' · 本局累计封存 ' + Math.round(M.pausedMs / 1000) + ' 秒（不计入成绩）' : '')
+    + (isHost ? '<br>他若回不来了，你可以点「放弃本局」回大厅' : '<br>房主掉线会自动换人，新房东能放弃本局');
+  $('giveUpBtn').style.display = isHost ? '' : 'none';
+  bar.classList.add('show');
+}
+
+/* ---------- 观战 ---------- */
+function renderWatch(M, R, isWatcher) {
+  const bar = $('watchBar');
+  if (!isWatcher || R.phase === 'lobby') { bar.classList.remove('show'); return; }
+  const left = M.order.length;
+  const alive = M.order.filter(id => { const p = M.players.find(x => x.id === id); return p && p.alive; }).length;
+  const tag = M.phase === 'over' ? '本局已结束' : ('本局还有 <i>' + left + '</i> 人在打（存活 ' + alive + '）');
+  $('watchWho').innerHTML = tag
+    + (M.mode === 'turn' && M.phase === 'playing' ? ' · 共享轮盘第 <i>' + (M.k + 1) + '</i> 转' : '')
+    + '<br>你能看全场，但转不了盘、也买不了东西。房间席位还留着。';
+  bar.classList.add('show');
+}
+
+/* 「我」那一栏底下的角色区：玩家看到「退出本局」，观战者看到「退出观战」 */
+function renderRoleBox(M, R, isWatcher) {
+  const box = $('myRoleBox');
+  box.innerHTML = '';
+  if (!joined || R.phase === 'lobby') return;
+
+  if (isWatcher) {
+    const card = document.createElement('div');
+    card.className = 'watchcard';
+    card.innerHTML = '👁 你正在观战'
+      + '<small>席位没丢 —— 名字与凭证都留着，刷新页面会自动回到观战席；<br>下一局回大厅时你会自动回到选手名单。</small>';
+    box.appendChild(card);
+    const q = document.createElement('button');
+    q.className = 'btn ghost';
+    q.style.width = '100%';
+    q.style.marginTop = '10px';
+    q.textContent = '退 出 观 战 · 离 开 房 间';
+    q.onclick = () => send({ type: 'quit' });
+    box.appendChild(q);
+    return;
+  }
+
+  const p = me();
+  if (!p || M.phase !== 'playing' || !p.alive) return;
+  const b = document.createElement('button');
+  b.className = 'btn ghost';
+  b.style.width = '100%';
+  b.textContent = '退 出 本 局 · 转 观 战';
+  b.onclick = openLeaveConfirm;
+  box.appendChild(b);
+}
+
+/* 退出前把后果说清楚 —— 这是不可逆的（这一局回不来了） */
+function openLeaveConfirm() {
+  const M = view.match;
+  const aliveOthers = M.order
+    .filter(id => id !== myId)
+    .filter(id => { const p = M.players.find(x => x.id === id); return p && p.alive && !p.finished; });
+  $('leaveWarn').innerHTML = aliveOthers.length === 1
+    ? '⚠ 场上只剩你和 <b>' + esc(nameOfAny(aliveOthers[0])) + '</b> —— 你一走，<b>他直接获胜</b>。'
+    : M.mode === 'turn'
+      ? '共享轮盘不会因为你的退出而回退，轮到下一个人继续转（读数保持第 ' + M.k + ' 转）。'
+      : '你会退出本局排名，这一局不能再回来打。';
+  $('leaveOverlay').classList.add('show');
+}
+
+function render() {
+  if (!view) { renderLobby(); return; }
+  const M = view.match, R = view.room;
+  const isHost = R.hostId === myId;
+  const inLobby = R.phase === 'lobby';
+
+  /* 盘面：事件表来自服务端，换了就重画 */
+  const keys = (M.events || FALLBACK_EVENTS).map(e => e.key).join(',');
+  if (keys !== wheelKeys) { wheelKeys = keys; buildWheel(M.events || FALLBACK_EVENTS); }
+
+  $('modePill').style.display = '';
+  $('modePill').textContent = R.modeLabel + (inLobby ? ' · 大厅' : '');
+
+  /* 封存提示（有人掉线时） */
+  const frozen = !inLobby && M.phase === 'playing' && !!M.frozen;
+  renderFreeze(M, frozen);
+
+  /* 房主迁移：房主掉线时服务端立刻换人，这里只在真的变了的时候说一句 */
+  if (R.hostId !== lastHostId) {
+    if (lastHostId != null && R.hostId && R.hostId !== myId) {
+      log('★ 房主变更：' + nameOfAny(R.hostId) + ' 接任房主', '#e8c26a');
+    }
+    lastHostId = R.hostId;
+  }
+
+  /* 我是玩家还是观战者 */
+  const isWatcher = myRole() === 'watcher';
+  renderWatch(M, R, isWatcher);
+  $('myStats').style.display = isWatcher ? 'none' : '';
+  $('myRoleTag').textContent = (inLobby || !joined) ? '' : (isWatcher ? '· 观战' : '');
+
+  /* 回合条 */
+  const tb = $('turnbar');
+  if (inLobby) {
+    tb.className = 'turnbar';
+    tb.textContent = resuming ? '正在恢复你的角色…' : '大厅 · 等待房主开局';
+  } else if (frozen) {
+    tb.className = 'turnbar danger';
+    tb.textContent = '❄ 赌局已封存 · 等 ' + offlineNames(M).join('、') + ' 重连';
+  } else if (M.phase === 'over') {
+    tb.className = 'turnbar';
+    tb.textContent = '对局结束';
+  } else if (M.mode === 'turn') {
+    const isMine = M.turnPlayerId === myId;
+    const myP = me();
+    if (myP && !myP.alive) { tb.className = 'turnbar danger'; tb.textContent = '你已出局 · 等待其余人分出胜负'; }
+    else if (myP && myP.finished) { tb.className = 'turnbar'; tb.textContent = '你已完成'; }
+    else if (isMine) { tb.className = 'turnbar me'; tb.textContent = '▶ 轮 到 你 了 · 全场第 ' + (M.k + 1) + ' 转'; }
+    else { tb.className = 'turnbar'; tb.textContent = '等待 ' + pname(M.turnPlayerId) + ' 转动 · 全场第 ' + (M.k + 1) + ' 转'; }
+  } else {
+    const myP = me();
+    tb.className = 'turnbar';
+    if (myP && !myP.alive) tb.textContent = '你已出局 · 等待其余人跑完';
+    else if (myP && myP.finished) tb.textContent = '你已完成 100 转 · 用时 ' + fmtMs(myP.survivalMs);
+    else tb.textContent = '死神追猎 · 各转各的，目标 100 转，比谁用时短';
+  }
+
+  /* 镰刀档位条 */
+  renderTiers(M, R);
+
+  /* 玩家卡片 */
+  renderPlayers(M, R);
+
+  /* V17：全员血量对比条（钉在轮盘正上方）—— 「谁快死了」这件事不该让人去右栏里
+     一张张卡片读出来。走进房间的第一眼就要看得见。 */
+  renderHpStrip();
+
+  /* 我 */
+  renderMe(M, R, isWatcher);
+  renderRoleBox(M, R, isWatcher);
+
+  /* 商场 */
+  renderShop(M, R);
+
+  /* 名次 */
+  renderRank(M);
+
+  /* 大厅浮层 */
+  renderLobby();
+
+  /* 转动按钮 */
+  const myP = me();
+  const myTurn = M.mode !== 'turn' || M.turnPlayerId === myId;
+  const canSpin = joined && M.phase === 'playing' && !frozen && !isWatcher && myP && myP.alive && !myP.finished
+    && myTurn && !selfBusy();
+  const btn = $('spinBtn');
+  btn.disabled = !canSpin;
+  btn.textContent = !joined ? '未 连 接'
+    : inLobby ? '等 待 开 局'
+    : isWatcher ? '观 战 中'
+    : frozen ? '已 封 存'
+    : M.phase === 'over' ? '本 局 结 束'
+    : !myP ? '旁 观'
+    : !myP.alive ? '你 已 出 局'
+    : myP.finished ? '你 已 完 成'
+    : !myTurn ? '等 待 对 手'
+    : selfBusy() ? '演 出 中…'
+    : '转 动';
+}
+
+function renderTiers(M, R) {
+  const box = $('tiers');
+  const inLobby = !R || R.phase === 'lobby';
+  const tiers = (!inLobby && M.rules && M.rules.scytheTiers) ? M.rules.scytheTiers : [];
+  if (!tiers.length) { box.innerHTML = ''; return; }
+  const myP = me();
+  const rd = myP ? myP.readout : 0;
+  const label = M.mode === 'turn' ? '全场转数' : '我的转数';
+  let html = '<span class="tier" style="border-color:transparent;background:transparent;color:#5d5952">' + label
+    + ' ' + rd + ' · 镰刀 </span>';
+  tiers.forEach(t => {
+    const on = rd >= t.from;
+    html += `<span class="tier${on ? ' on' : ''}">${t.from} 转起 · −${t.dmg}/转</span>`;
+  });
+  box.innerHTML = html;
+}
+
+function renderPlayers(M, R) {
+  const box = $('players');
+  box.innerHTML = '';
+  const ws = (view && view.watchers) || [];
+  $('roomHint').textContent = M.order.length + ' 人'
+    + (M.mode === 'turn' ? ' · 共享轮盘读至第 ' + M.k + ' 转' : ' · 各自轮盘')
+    + (ws.length ? ' · 观战 ' + ws.length : '');
+  M.order.forEach(id => {
+    const p = M.players.find(x => x.id === id);
+    if (!p) return;
+    const isMe = p.id === myId;
+    const isTurn = M.mode === 'turn' && M.turnPlayerId === p.id && M.phase === 'playing' && p.alive && !p.finished;
+    const d = document.createElement('div');
+    d.className = 'pcard' + (isMe ? ' me' : '') + (p.alive ? '' : ' dead')
+      + (p.connected ? '' : ' off') + (isTurn ? ' turn' : '') + (p.finished ? ' done' : '');
+    const hpMax = M.rules.hpMax;
+    const tag = !p.connected ? '掉线' : !p.alive ? '已出局' : p.finished ? '已完成' : (isTurn ? '轮到他' : '存活');
+    let extra = '';
+    if (M.mode === 'race') {
+      const pct = Math.min(100, p.spins / M.rules.target * 100).toFixed(0);
+      extra = `<div class="hpbar" style="background:rgba(255,255,255,.06)"><i style="width:${pct}%;background:linear-gradient(90deg,#256b4e,#52b788)"></i></div>`
+        + `<div class="pmeta"><span>进度 <b>${p.spins}/${M.rules.target}</b></span>`
+        + `<span>用时 <b>${p.finished || !p.alive ? fmtMs(p.survivalMs) : liveMs()}</b></span>`
+        + (p.scythe ? `<span style="color:#ff8b8b">镰刀 −${p.scythe}/转</span>` : '')
+        + (p.bananas ? `<span style="color:#c8a24a">🍌 ×${p.bananas}</span>` : '')
+        + `</div>`;
+    } else {
+      extra = `<div class="pmeta"><span>轮盘读数 <b>${p.readout}</b></span>`
+        + (p.scythe ? `<span style="color:#ff8b8b">镰刀 −${p.scythe}/转</span>` : '')
+        + `</div>`;
+    }
+    d.innerHTML = `
+      <div class="phead">
+        <span class="pname">${esc(p.name)}${isMe ? ' · 我' : ''}${id === R.hostId ? ' · 房主' : ''}</span>
+        <span class="tag">${tag}</span>
+      </div>
+      <div class="pmeta">
+        <span>生命 <b style="color:${p.hp <= 2 ? '#e5383b' : '#e8e6e1'}">${p.hp}/${hpMax}</b></span>
+        <span>金币 <b>${fmtGold(p.gold)}</b></span>
+        <span>🛡 <b>${p.charms}</b></span>
+        <span>🧪 <b>${p.potions}</b></span>
+        ${p.rewinds ? `<span>↩ <b>${p.rewinds}</b></span>` : ''}
+      </div>${extra}`;
+    box.appendChild(d);
+  });
+
+  /* 观战席：他们没有本局座位，但都是房间里的人 */
+  if (ws.length) {
+    const wr = document.createElement('div');
+    wr.className = 'watchrow';
+    let html = '<div class="watchrow-h">👁 观战（' + ws.length + '）</div>';
+    ws.forEach(x => {
+      html += '<div class="watchrow-i">' + esc(x.name)
+        + (x.id === R.hostId ? '<em>房主</em>' : '')
+        + (x.connected ? '' : ' · 掉线') + '</div>';
+    });
+    wr.innerHTML = html;
+    box.appendChild(wr);
+  }
+}
+
+function liveMs() {
+  if (!view || !view.match.startedAt) return null;
+  /* 计时交给引擎：封存（掉线等待）的那段会被自动扣掉 */
+  const now = view.match.endedAt != null ? view.match.endedAt : Date.now() + serverOffset;
+  return ENGINE.elapsedMs(view.match, now);
+}
+
+function renderMe(M, R) {
+  const p = me();
+  if (!p) {
+    ['myHp', 'myReadout', 'myGold', 'myItems'].forEach(id => $(id).textContent = '—');
+    return;
+  }
+  const hpMax = M.rules.hpMax;
+  $('myHp').textContent = p.hp + ' / ' + hpMax;
+  $('myHp').className = 'v' + (p.hp <= 2 ? ' danger' : '');
+  /* V17：血条不放左栏了 —— 全员对比已挪到轮盘上方的 #hpStrip。
+     这里只留一个数字，避免同一份血量在界面上出现两遍。 */
+
+  $('myReadoutK').textContent = M.mode === 'turn' ? '全场转数' : '我的转数';
+  $('myReadout').textContent = p.readout;
+
+  $('myGold').textContent = fmtGold(p.gold);
+  const cap = M.rules.interestCap;
+  const base = cap != null ? Math.min(p.gold, cap) : p.gold;
+  const itr = Math.floor(base / 10);
+  $('myItr').textContent = itr >= 1 ? '· 利息 +' + fmtGold(itr) + (cap != null && p.gold > cap ? '（已达上限）' : '') : '';
+
+  const isRace = M.mode === 'race';
+  $('myProgressRow').style.display = isRace ? '' : 'none';
+  $('myTimeRow').style.display = isRace ? '' : 'none';
+  $('myBananaRow').style.display = (isRace && p.bananas > 0) ? '' : 'none';
+  if (isRace) {
+    $('myProgress').textContent = p.spins + ' / ' + M.rules.target;
+    $('myTime').textContent = (p.finished || !p.alive) ? fmtMs(p.survivalMs) : fmtMs(liveMs());
+    $('myBanana').textContent = p.bananas + ' 次';
+  }
+  $('myItems').textContent = p.charms + ' / ' + p.potions;
+
+  /* 随时刷新计时（只改文本，不重排整页） */
+  if (isRace && M.phase === 'playing' && p.alive && !p.finished) {
+    setTimeout(() => { if (view && view.match.phase === 'playing') {
+      const q = me(); if (q) { $('myTime').textContent = fmtMs(liveMs()); }
+      renderPlayersTicks();
+    } }, 1000);
+  }
+}
+function renderPlayersTicks() {
+  const M = view && view.match;
+  if (!M || M.mode !== 'race') return;
+  const rows = $('players').children;
+  for (let i = 0; i < M.order.length && i < rows.length; i++) {
+    const p = M.players.find(x => x.id === M.order[i]);
+    if (!p) continue;
+    /* 🔴 别按下标取 .pmeta —— V17 去掉了卡片里那条重复血条，下标整体左移一格，
+       原来写死的 children[2] 会摸到「进度条」而不是 meta，于是计时**静默失效**
+       （找不到就什么也不做，页面不报错，测试也测不出来）。改成按 class 找。 */
+    for (const metas of rows[i].children) {
+      if (String(metas.className || '').indexOf('pmeta') < 0) continue;
+      for (const s of metas.children) {
+        if (s.textContent.indexOf('用时') === 0) {
+          s.innerHTML = '用时 <b>' + ((p.finished || !p.alive) ? fmtMs(p.survivalMs) : fmtMs(liveMs())) + '</b>';
+        }
+      }
+    }
+  }
+}
+
+function renderShop(M, R) {
+  const box = $('shop');
+  const myP = me();
+  const list = meShop();
+  box.innerHTML = '';
+  if (!myP) {
+    box.innerHTML = '<div class="shop-desc">' + (myRole() === 'watcher'
+      ? '你在观战 —— 本局不能购物。下一局回大厅后会恢复选手身份。'
+      : '进入房间后显示') + '</div>';
+    return;
+  }
+  if (!list.length) { box.innerHTML = '<div class="shop-desc">这个模式没有商品</div>'; return; }
+
+  const frozen = !!M.frozen;
+  list.forEach(it => {
+    const soldOut = it.limit != null && myP.rewinds >= it.limit;
+    const can = R.phase === 'playing' && !frozen && myP.alive && !myP.finished && myP.gold >= it.price && !soldOut;
+    const d = document.createElement('div');
+    d.className = 'shop-item';
+    const infl = it.price > it.base ? `<s>${it.base}</s>` : '';
+    d.innerHTML = `
+      <div class="shop-top">
+        <span class="shop-name">${esc(it.name)}</span>
+        <span class="shop-price">${infl}${it.price} 金</span>
+      </div>
+      <div class="shop-desc">${SHOP_DESC[it.id] || esc(it.desc)}
+        ${it.limit != null ? `<b style="color:${soldOut ? '#e5383b' : '#8e8a82'}"> 已用 ${myP.rewinds}/${it.limit}</b>` : ''}</div>
+      <button class="buy-btn" ${can ? '' : 'disabled'}>${soldOut ? '已 售 罄' : '购 买'}</button>`;
+    d.querySelector('button').onclick = () => tryBuy(it);
+    box.appendChild(d);
+  });
+
+  const use = document.createElement('button');
+  use.className = 'buy-btn';
+  use.style.marginTop = '4px';
+  const canUse = R.phase === 'playing' && !frozen && myP.alive && !myP.finished && myP.potions > 0 && myP.hp < M.rules.hpMax;
+  use.disabled = !canUse;
+  use.textContent = '使 用 药 水（剩 ' + myP.potions + '）';
+  use.onclick = () => { if (!selfBusy()) send({ type: 'usePotion' }); render(); };
+  box.appendChild(use);
+}
+
+function renderRank(M) {
+  const panel = $('rankPanel');
+  if (!M.ranking || !M.ranking.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const box = $('rank');
+  box.innerHTML = '';
+  M.ranking.forEach((id, i) => {
+    const p = M.players.find(x => x.id === id);
+    const d = document.createElement('div');
+    d.className = 'rank-row' + (i === 0 ? ' first' : '');
+    d.innerHTML = `<span>${i + 1}. ${esc(p ? p.name : id)}${id === myId ? ' · 我' : ''}</span>`
+      + `<b>${fmtMs(p ? p.survivalMs : null)}</b>`;
+    box.appendChild(d);
+  });
+}
+
+/* ---------- 大厅 ---------- */
+function renderLobby() {
+  const ov = $('lobbyOverlay');
+  const inLobby = view && view.room.phase === 'lobby';
+  if (!inLobby) { ov.classList.remove('show'); return; }
+  ov.classList.add('show');
+
+  const R = view.room, M = view.match;
+  const isHost = R.hostId === myId;
+  $('lobbySub').innerHTML = joined
+    ? (isHost ? '你是房主 · 选模式后点击开始' : '等待房主开局…')
+    : '正在进入房间…';
+
+  const mb = $('lobbyModes');
+  mb.innerHTML = '';
+  (view.modes || []).forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'lobby-mode' + (R.mode === m.id ? ' sel' : '');
+    b.dataset.mode = m.id;
+    b.innerHTML = m.label + '<small>' + (m.id === 'turn' ? '共享轮盘 · 最后站着的人赢' : '各自轮盘 · 100 转比用时') + '</small>';
+    b.disabled = !isHost || !joined;
+    b.onclick = () => send({ type: 'setMode', mode: m.id });
+    mb.appendChild(b);
+  });
+
+  const lb = $('lobbyList');
+  lb.innerHTML = '';
+  M.players.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'lobby-row';
+    d.innerHTML = `<span>${esc(p.name)}${p.id === myId ? ' · 我' : ''}</span>`
+      + '<span class="tags">'
+      + (p.id === R.hostId ? '<span class="tiny" style="color:#e8c26a;border-color:#8d7538">房主</span>' : '')
+      + (p.connected ? '' : '<span class="tiny" style="color:#e5383b;border-color:#7a1f22">掉线</span>')
+      + '</span>';
+    lb.appendChild(d);
+  });
+
+  /* 服务器名称 / 房间码 —— 只有房主能改 */
+  const cn = $('cfgName'), cc = $('cfgCode'), cs = $('cfgSave');
+  if ($('cfgId')) $('cfgId').textContent = '· ' + (R.serverId || '—');
+  /* 只在没聚焦时覆盖输入框，免得房主打字打到一半被 sync 冲掉 */
+  if (document.activeElement !== cn) cn.value = R.name || '';
+  if (document.activeElement !== cc) cc.value = R.code || '';
+  cn.disabled = cc.disabled = cs.disabled = (!isHost || !joined);
+  if ($('cfgHint')) {
+    $('cfgHint').innerHTML = isHost
+      ? '改完点保存。房间码只管<b>新加入</b>的人 —— 已经在房里的人不受影响。'
+      : '只有房主能改服务器的名称与房间码。';
+  }
+
+  const btn = $('startBtn');
+  btn.disabled = !isHost || !joined || M.players.length < 1;
+  btn.textContent = isHost ? '开 始 赌 局（' + M.players.length + ' 人）' : '等 待 房 主 开 局';
+}
+
+/* ---------- 香蕉皮目标选择 ---------- */
+let pendingItem = null;
+function tryBuy(it) {
+  if (selfBusy()) return;
+  if (view && view.match && view.match.frozen) {
+    log('赌局已封存 —— 等掉线的人回来再动手', '#e8c26a');
+    return;
+  }
+  if (it.needTarget) {
+    pendingItem = it;
+    const grid = $('targetGrid');
+    grid.innerHTML = '';
+    const others = view.match.players.filter(p => p.id !== myId && p.alive && !p.finished);
+    if (!others.length) {
+      $('targetSub').textContent = '现在没有可以被扔香蕉皮的对手。';
+    } else {
+      $('targetSub').textContent = '被扔中的人接下来 5 次转动「转数不涨」，但转盘效果照常结算 —— 拖慢他，让他用时更久。';
+    }
+    others.forEach(p => {
+      const b = document.createElement('button');
+      b.className = 'tgt';
+      b.innerHTML = `<span>${esc(p.name)}</span>`
+        + `<span class="meta">进度 ${p.spins} · 生命 ${p.hp}/${view.match.rules.hpMax}`
+        + `${p.bananas ? ' · 已挂着 ' + p.bananas + ' 次' : ''}</span>`;
+      b.onclick = () => { $('targetOverlay').classList.remove('show'); send({ type: 'buy', itemId: it.id, targetId: p.id }); };
+      grid.appendChild(b);
+    });
+    $('targetOverlay').classList.add('show');
+    return;
+  }
+  send({ type: 'buy', itemId: it.id });
+}
+
+/* ---------- 结算 ---------- */
+function showEnd() {
+  /* ⚠ 它是 setTimeout 里调用的：这几百毫秒内玩家完全可能已经退出观战 /
+     退出房间（view 被清空）。判空，否则控制台会崩一个空引用。 */
+  if (!view || !view.match || !view.room) return;
+  const M = view.match, R = view.room;
+  if (M.phase !== 'over') return;
+  const winner = M.winner;
+  const iWin = winner === myId;
+  $('endModal').className = 'modal';
+  $('endTitle').className = 'big ' + (iWin ? 'w' : 'd');
+  $('endTitle').textContent = !winner ? '无 人 胜 出' : iWin ? '你 赢 了' : pname(winner) + ' 获 胜';
+  $('endSub').textContent = (R.modeLabel) + ' · ' + (REASON_TEXT[M.reason] || M.reason);
+
+  let html = '';
+  if (M.ranking && M.ranking.length) {
+    html += '<div style="text-align:left;margin:14px 0">';
+    M.ranking.forEach((id, i) => {
+      const p = M.players.find(x => x.id === id);
+      html += `<div class="rank-row${i === 0 ? ' first' : ''}"><span>${i + 1}. ${esc(p ? p.name : id)}`
+        + `${id === myId ? ' · 我' : ''}</span><b>${fmtMs(p ? p.survivalMs : null)}</b></div>`;
+    });
+    html += '</div>';
+  }
+  const myP = me();
+  if (myP) {
+    const rows = [
+      ['我的存活时间', fmtMs(myP.survivalMs)],
+      ['转数', myP.spins + (M.rules.target ? ' / ' + M.rules.target : '')],
+      ['剩余生命', myP.hp + ' / ' + M.rules.hpMax],
+      ['剩余金币', fmtGold(myP.gold)],
+      ['死神利息', fmtGold(myP.interest)],
+      ['累计消费', fmtGold(myP.spent)],
+      ['护符消耗', myP.charmUsed],
+    ];
+    html += '<div style="text-align:left;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0">'
+      + rows.map(r => `<div class="rank-row" style="justify-content:space-between"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')
+      + '</div>';
+  }
+  $('endBody').innerHTML = html;
+  const isHost = R.hostId === myId;
+  $('endBtn').disabled = !isHost;
+  $('endBtn').textContent = isHost ? '再 来 一 局（回大厅）' : '等 待 房 主';
+  $('endNote').textContent = isHost ? '' : '房主点击「再来一局」后，全员回到大厅。';
+  $('endOverlay').classList.add('show');
+  if (iWin) SFX.win(); else SFX.death();
+}
+
+/* 死神降临演出 */
+function herald(line, desc) {
+  $('heraldLine').innerHTML = line;
+  $('heraldDesc').innerHTML = desc;
+  $('herald').classList.add('show');
+  beep(110, .9, 'sawtooth', .13);
+  setTimeout(() => beep(220, .5, 'triangle', .07), 260);
+  setTimeout(() => $('herald').classList.remove('show'), 2400);
+}
+
+/* ---------- 顶部血条对比条（V17）----------
+   全员血量并排放在轮盘上方，一眼看出谁快没了。
+   以前这些血条散在右栏「房间」卡片里，得一条条读完才知道局势。
+
+   每格内容：
+     名字（我 / 房主 标记）· 剩余血量数字 · 血条
+     死神追猎再多一条绿色进度条（目标转数进度）+ 用时
+   视觉状态：
+     .me   金色边（我）  .turn 绿色边（轮到他）  .dead 变暗  .off 灰掉（掉线）
+     .warn 黄橙条（血 ≤ 2）  .ok 绿条（血满） */
+function renderHpStrip() {
+  const box = $('hpStrip');
+  if (!box) return;
+  const M = view && view.match;
+  const R = view && view.room;
+  if (!M || !R) { box.innerHTML = ''; return; }
+
+  const hpMax = M.rules.hpMax;
+  box.innerHTML = '';
+  M.players.forEach(p => {
+    const isMe = p.id === myId;
+    const isTurn = M.mode === 'turn' && M.turnPlayerId === p.id && M.phase === 'playing' && p.alive && !p.finished;
+    const pct = Math.max(0, p.hp) / hpMax * 100;
+    const cls = 'hpcell' + (isMe ? ' me' : '') + (isTurn ? ' turn' : '')
+      + (!p.alive ? ' dead' : '') + (!p.connected ? ' off' : '')
+      + (p.hp <= 2 && p.alive ? ' warn' : (p.hp >= hpMax ? ' ok' : ''));
+
+    const sub = p.finished ? '已完成'
+      : !p.alive ? '已出局'
+      : !p.connected ? '掉线（封存中）'
+      : isTurn ? '轮到他'
+      : (M.mode === 'race' ? '进度 ' + p.spins + '/' + M.rules.target : '轮盘读数 ' + p.readout);
+
+    const d = document.createElement('div');
+    d.className = cls;
+    d.innerHTML = '<div class="hp-top">'
+      + '<span class="hp-nm">' + esc(p.name) + (isMe ? ' · 我' : '') + (p.id === R.hostId ? ' · 房主' : '') + '</span>'
+      + '<span class="hp-num" style="color:' + (p.hp <= 2 && p.alive ? '#e5383b' : '#e8e6e1') + '">'
+      + Math.max(0, p.hp) + '/' + hpMax + '</span>'
+      + '</div>'
+      + '<div class="hp-track"><i style="width:' + pct + '%"></i></div>'
+      + (M.mode === 'race'
+        ? '<div class="hp-track pg"><i style="width:' + Math.min(100, p.spins / M.rules.target * 100).toFixed(0) + '%"></i></div>'
+        : '')
+      + '<div class="hp-sub">' + sub + '</div>';
+    box.appendChild(d);
+  });
+}
+
+/* ---------- 启动 ---------- */
+function init() {
+  opLog('启动', '页面打开'
+    + (typeof EMBEDDED_SOLO !== 'undefined' ? '（原生壳内）' : '')
+    + (typeof location !== 'undefined' && location.protocol === 'file:' ? '（file://）' : '')
+    + (oplogPrev ? ' · 存有上次会话日志' : ''));
+  /* 纯装饰性的绘制分开兜底：画不出来只是不好看，绝不能让整页初始化中断。
+     （历史教训：buildWheel 里一个变量名写错，整页在 init() 第一行就崩了，
+      render() 从没执行过，连接栏被大厅遮罩永久盖住，用户连地址都没法填。） */
+  try { buildWheel(FALLBACK_EVENTS); } catch (e) { console.error('轮盘绘制失败：', e); }
+  try { buildBulbs(); } catch (e) { console.error('灯泡绘制失败：', e); }
+  wheelKeys = FALLBACK_EVENTS.map(e => e.key).join(',');
+  resetTable();
+  /* 服务器地址（V15）：**地址框永远是空的**。
+     地址只活在内存里的 pendingAddr，并且做成卡片显示「名字」而非地址 ——
+     界面上不出现任何 IP / 协议字符串。
+     优先级：① 上次连过的（有它就直接自动进，见 init 末尾）
+             ② 本页所在的服务器（网页 / PC 客户端打开的页面天然就是它发的）
+             ③ 用户点列表里的卡片，或在「异地加入」里手填 */
+  const savedAddr = (SS.getItem(ADDR_KEY) || '').trim();
+  const pageHost = (typeof location !== 'undefined' && location.host) ? location.host : '';
+  $('addr').value = '';
+  const kc = [];
+  const k1 = savedAddr ? knownCard('上次进过的房间', savedAddr, '记住的地址，点一下直接进') : null;
+  if (k1) kc.push(k1);
+  const k2 = (pageHost && pageHost !== savedAddr)
+    ? knownCard('本页就是这个服务器', pageHost, '这个页面就是它给的') : null;
+  if (k2) kc.push(k2);
+  knownCards = kc;
+  if (savedAddr) pendingAddr = savedAddr;
+  else if (pageHost) pendingAddr = pageHost;
+  $('name').value = session.name || ('玩家' + Math.floor(Math.random() * 90 + 10));
+
+  /* 服务器列表：原生壳（手机 App / PC 客户端）才能扫，扫到就收起手动框，
+     让入口只剩「点一下」。纯浏览器里显示一句说明 + 保留手动地址。 */
+  if (hasDiscover()) {
+    const mb = $('manualBox');
+    if (mb) mb.open = false;          // 有扫描能力 → 手动框收起来，界面干净
+    log('已经在搜索局域网里的服务器 —— 点一下就能进。', '#e8c26a');
+  } else {
+    if (!savedAddr && !pageHost) {
+      log('先在电脑上双击「生死转盘-服务端.exe」。黑窗口里有一行标着「★ 别人连这一行」，把那串「IP:端口」抄到最上面（不要带 http://）。', '#e8c26a');
+    }
+    log('填好名字，点「连接这个地址」', '#8e8a82');
+  }
+  /* 有桥就扫、没桥就在列表区给出说明 —— 两条路都走这一个入口 */
+  startDiscover();
+  if (session.token) log('检测到上次的座位凭证 —— 进去时会自动「正在恢复你的角色」', '#e8c26a');
+  log('单人模式在「← 启动页」里选，或者直接开「单机 · 死亡轮盘」。', '#5d5952');
+  render();
+  /* V17：一进来先给**连接页**（搜服务器 / 填地址），不是游戏页 ——
+     游戏页顶部已经不放搜索与地址栏了。连上之后 showView('game') 才切过去。
+     已经连上的情况（welcome）也会自己切，所以这里只负责「开场那一屏」。 */
+  showView('connect');
+  /* V15：上次连过那台就自动进，不用再点一下。
+     连不上由 giveUpAutoJoin() 收住（停下来把入口还给玩家），不会后台死循环。 */
+  if (savedAddr) setTimeout(() => { autoJoin = true; connect(); }, 150);
+}
+
+/* V18.1：这个按钮的语义就是「连这个地址」—— 不存在「已经连着就等于想断开」。
+   🔴 旧版那句 `if (ws && ws.readyState === 1) { …断开… return; }` 是个陷阱：
+      房间码不对时服务端**只回 rejected、不关连接**（server.js 的 join 分支 return 了），
+      所以那条 WebSocket 一直是 OPEN。玩家改完房间码再点一次 ⇒ 被当成「断开」——
+      日志里连一句「正在连接」都没有，界面只是默默回到连接页，看着就是"点了没反应"。
+      局域网点卡片走的是 codeYes（没有这句守卫）所以从来没事；
+      **异地只能手填地址、只能点这个按钮 ⇒ 整条异地路被它堵死**。
+   换服务器就换服务器：openSocket() 自己会把旧连接顶掉（dropped + close），不需要这里代劳。 */
+$('joinBtn').onclick = () => {
+  /* 玩家自己点了 = 又给了它一次机会，把「连续失败」的账清零。
+     否则自动重连用完额度后，他再怎么点都只会立刻停手。 */
+  reconnectFails = 0;
+  connect();
+};
+$('startBtn').onclick = () => send({ type: 'start' });
+/* 「重新搜索」：清空旧结果再让原生层扫一次 */
+$('srvRescan').onclick = () => { discovered = []; startDiscover(); };
+
+/* ---- V17 视图切换按钮 ---- */
+/* 「连接服务器 / 换服务器」：切到连接屏。不断开现有连接 ——
+   万一是想看看有哪些服务器，切过去再切回来不该把对局弄断。 */
+$('btnConnect').onclick = () => showView('connect');
+/* 连接屏上的「返回游戏」：只在已经连着的时候出现 */
+$('cvBackBtn').onclick = () => showView('game');
+
+/* 选中的服务器要房间码 → 弹层问，密码填进 #pass 再连（复用同一条连接路径） */
+$('codeYes').onclick = () => {
+  $('codeOverlay').classList.remove('show');
+  $('pass').value = $('codeInput').value.trim();
+  connect(pendingAddr);   /* 压过地址框里可能残留的旧值，别再被它劫持 */
+};
+$('codeNo').onclick = () => {
+  $('codeOverlay').classList.remove('show');
+  $('pass').value = '';
+};
+/* 房主改服务器名称 / 房间码（服务端还会再验一次「是不是房主」） */
+$('cfgSave').onclick = () => {
+  send({ type: 'config', name: $('cfgName').value.trim(), code: $('cfgCode').value.trim() });
+};
+$('endBtn').onclick = () => send({ type: 'reset' });
+$('giveUpBtn').onclick = () => send({ type: 'reset' });
+$('spinBtn').onclick = () => { send({ type: 'spin' }); render(); };
+$('quitWatchBtn').onclick = () => send({ type: 'quit' });
+/* 大厅里的「离开房间」：大厅是个全屏遮罩，没有这个出口的话，
+   一旦进来就再也够不到连接栏（换服务器地址 / 换名字都做不到）。 */
+$('lobbyQuitBtn').onclick = () => {
+  if (ws && ws.readyState === 1) send({ type: 'quit' });
+  else {
+    manualClose = true;
+    joined = false; myId = null; view = null;
+    setConn('已离开', 'off');
+    render();
+  }
+};
+$('leaveYes').onclick = () => { $('leaveOverlay').classList.remove('show'); send({ type: 'leave' }); };
+$('leaveNo').onclick = () => $('leaveOverlay').classList.remove('show');
+/* 对局中进房：确认观战 */
+$('spectateYes').onclick = () => {
+  $('spectateOverlay').classList.remove('show');
+  wantSpectate = true;
+  if (ws && ws.readyState === 1) {
+    setConn('连接中…', '');
+    send({
+      type: 'join',
+      name: $('name').value.trim() || '无名氏',
+      spectate: true,
+      pass: $('pass').value.trim() || undefined,
+    });
+  } else {
+    connect();
+  }
+};
+$('spectateNo').onclick = () => {
+  $('spectateOverlay').classList.remove('show');
+  manualClose = true;
+  wantSpectate = false;
+  try { if (ws) ws.close(); } catch (e) {}
+  setConn('已离开', 'off');
+  log('你没有进入这个房间。', '#8e8a82');
+  render();
+};
+$('btnRules').onclick = () => $('ruleOverlay').classList.add('show');
+$('closeRules').onclick = () => $('ruleOverlay').classList.remove('show');
+$('targetCancel').onclick = () => $('targetOverlay').classList.remove('show');
+$('btnSound').onclick = () => {
+  audioOn = !audioOn;
+  $('btnSound').textContent = '音效：' + (audioOn ? '开' : '关');
+};
+/* V18.2 操作日志：游戏页顶栏一个、连接页一个（连不上时也要能拿到 —— 那恰恰是最需要它的场景）。
+   每个 id 都判空：假 DOM / 老壳子里缺一个元素也不能让整页脚本挂掉。 */
+if ($('btnLog')) $('btnLog').onclick = opOpen;
+if ($('cvLogBtn')) $('cvLogBtn').onclick = opOpen;
+if ($('logClose')) $('logClose').onclick = opClose;
+if ($('logCopy')) $('logCopy').onclick = opCopy;
+if ($('logSave')) $('logSave').onclick = opDownload;
+if ($('logSend')) $('logSend').onclick = opSendToHost;
+['name', 'addr', 'pass'].forEach(id => {
+  const el = $(id);
+  if (el && el.addEventListener) el.addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
+});
+if (typeof document.addEventListener === 'function') {
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space') return;
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'INPUT') return;
+    e.preventDefault();
+    if (!$('spinBtn').disabled) $('spinBtn').click();
+  });
+}
+
+init();
+
+/* ---------- PWA：让手机能「添加到主屏幕」，像 App 一样全屏进 ---------- */
+/* 注意：Service Worker 只在「安全上下文」里能注册 —— https 或 localhost。
+   手机连的是 http://<电脑局域网IP>:8080，属于非安全上下文，
+   浏览器会直接拒绝注册。所以这里先探测，注册不了就静默跳过：
+   游戏本体、联机、断线重连全都不依赖 SW，只是少了离线缓存而已。 */
+(function () {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+  if (typeof location === 'undefined') return;
+  var proto = location.protocol;
+  if (proto !== 'http:' && proto !== 'https:') return;   // file://（安卓壳）不注册
+  var secure = (typeof window !== 'undefined' && window.isSecureContext)
+    || proto === 'https:'
+    || location.hostname === 'localhost'
+    || location.hostname === '127.0.0.1';
+  if (!secure) return;
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+})();
+</script>
+</body>
+</html>

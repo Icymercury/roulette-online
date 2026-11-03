@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>房主管理台 · 生死转盘</title>
+<style>
+  :root{
+    --bg:#100e0b; --panel:#1a1611; --line:#3a3128;
+    --gold:#e8c26a; --gold-dim:#8d7437;
+    --txt:#efe6d4; --dim:#9c9186;
+    --red:#c9452f; --green:#52b788; --blue:#4d8fd6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:radial-gradient(120% 80% at 50% -10%,#241d15 0%,var(--bg) 60%),var(--bg);
+    color:var(--txt);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    padding:22px 16px 40px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  h1{margin:0 0 2px;font-size:20px;letter-spacing:.2em;color:var(--gold)}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:18px}
+  .sub b{color:var(--green)}
+
+  .card{
+    background:linear-gradient(160deg,#221c15,#181410);
+    border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:13px;
+  }
+  .card h2{
+    margin:0 0 10px;font-size:14px;letter-spacing:.08em;color:var(--gold);
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .tag{
+    font-size:10px;color:var(--dim);border:1px solid var(--line);
+    border-radius:20px;padding:2px 8px;letter-spacing:0;font-weight:400;
+  }
+
+  .urlbox{
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    background:#0f0c09;border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+  }
+  .urlbox .u{
+    flex:1;min-width:220px;font-family:Consolas,Menlo,monospace;font-size:14px;
+    color:var(--gold);word-break:break-all;
+  }
+  .urlbox .u.none{color:var(--dim);font-family:inherit;font-size:12.5px}
+  button{
+    background:#241d15;color:var(--gold);border:1px solid var(--gold-dim);
+    border-radius:9px;padding:8px 14px;font-size:12.5px;cursor:pointer;
+    font-family:inherit;letter-spacing:.05em;
+  }
+  button:hover{background:#2e2519}
+  button:active{transform:scale(.97)}
+  button.ghost{color:var(--dim);border-color:var(--line)}
+  button.ok{color:#0f0c09;background:var(--gold);border-color:var(--gold);font-weight:700}
+
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  input{
+    background:#0f0c09;border:1px solid var(--line);border-radius:9px;
+    color:var(--txt);padding:9px 12px;font-size:13.5px;font-family:inherit;
+    outline:none;flex:1;min-width:160px;
+  }
+  input:focus{border-color:var(--gold-dim)}
+  .hint{font-size:11.5px;color:var(--dim);line-height:1.7;margin-top:9px}
+  .hint.warn{color:#e0a34a}
+  .hint b{color:var(--gold)}
+
+  .kv{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:4px}
+  .kv span b{color:var(--txt);font-weight:600}
+
+  .plist{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .pchip{
+    background:#0f0c09;border:1px solid var(--line);border-radius:20px;
+    padding:5px 11px;font-size:12px;color:var(--txt);
+  }
+  .pchip.me{border-color:var(--gold-dim);color:var(--gold)}
+  .empty{font-size:12px;color:var(--dim)}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--gold);color:#0f0c09;padding:10px 18px;border-radius:10px;
+    font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:.25s;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .steps{font-size:12px;color:var(--dim);line-height:1.9;margin:8px 0 0 0;padding-left:18px}
+  .steps code{
+    background:#0f0c09;border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;color:var(--gold);font-family:Consolas,Menlo,monospace;font-size:11.5px;
+  }
+
+  /* 规则改写区 */
+  .grp{border-top:1px dashed var(--line);padding-top:11px;margin-top:11px}
+  .grp:first-child{border-top:0;padding-top:0;margin-top:0}
+  .grp-t{font-size:12.5px;color:var(--gold);margin-bottom:8px;letter-spacing:.05em}
+  .grp-t .muted{color:var(--dim);font-size:11px;letter-spacing:0}
+  .grid{display:grid;gap:8px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g5{grid-template-columns:repeat(5,1fr)}
+  @media (max-width:640px){ .g4,.g5{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:1fr} }
+  .grid label{
+    display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--dim);
+  }
+  .grid label input{
+    flex:none;font-size:13px;padding:7px 9px;min-width:0;width:100%;text-align:center;
+  }
+  .hint.err{color:var(--red)}
+  .warn-i{color:#e0a34a}
+  .badge{
+    font-size:11px;color:var(--dim);border:1px solid var(--line);
+    border-radius:20px;padding:3px 9px;
+  }
+  .badge.on{color:var(--gold);border-color:var(--gold-dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>房 主 管 理 台</h1>
+  <div class="sub">这个页面只有<b>开着服务端的这台电脑</b>能打开 · 端口 <span id="adminPort">—</span></div>
+
+  <!-- 穿透网址 -->
+  <div class="card">
+    <h2>外地朋友的网址 <span class="tag">穿透隧道</span>
+      <span class="badge" id="tunBadge" style="margin-left:auto">未开启</span>
+    </h2>
+    <div class="urlbox">
+      <div class="u none" id="url">正在检测…</div>
+      <button id="btnCopy">复 制</button>
+      <button class="ghost" id="btnRefresh">重新检测</button>
+    </div>
+    <div class="row">
+      <button class="ok" id="btnTunStart">开 穿 透</button>
+      <button class="ghost" id="btnTunStop">关 穿 透</button>
+    </div>
+    <div class="hint" id="urlHint"></div>
+    <div class="hint" id="urlHintTun"></div>
+
+    <div class="grp" style="margin-top:12px">
+      <div class="grp-t">cpolar 程序位置 <span class="muted">（选一次就记住）</span></div>
+      <div class="row">
+        <input id="tunBin" placeholder="还没找到 cpolar.exe" autocomplete="off">
+        <button class="ghost" id="btnPickBin">浏 览…</button>
+        <button class="ghost" id="btnAutoBin">自动查找</button>
+      </div>
+      <div class="hint" id="binHint"></div>
+    </div>
+
+    <div class="hint" id="tunnelHelp" style="display:none">
+      也可以自己开隧道（不开上面的按钮的话），在另一个窗口里跑：
+      <ol class="steps">
+        <li><code>cpolar authtoken 你的token</code>（只做一次，没配会直接退出）</li>
+        <li><code>cpolar http 8080</code>（端口换成你实际的端口）</li>
+      </ol>
+      隧道一起来，这个页面会自动显示网址。
+    </div>
+    <div class="hint warn-i">
+      ⚠ 开了穿透 = 把游戏端口放到公网上。**先设好房间码**（上面那张卡片），玩完点「关穿透」。
+      服务端关掉时穿透会自动一起关。
+    </div>
+  </div>
+
+  <!-- 房间码 -->
+  <div class="card">
+    <h2>房间码 <span class="tag">只挡新加入的人</span></h2>
+    <div class="row">
+      <input id="code" maxlength="12" placeholder="不设就是谁都能进" autocomplete="off">
+      <button class="ok" id="btnCode">保 存</button>
+    </div>
+    <div class="hint" id="codeHint"></div>
+  </div>
+
+  <!-- 服务器名称 -->
+  <div class="card">
+    <h2>服务器名称 <span class="tag">最多 20 字</span></h2>
+    <div class="row">
+      <input id="name" maxlength="20" placeholder="给房间起个名字" autocomplete="off">
+      <button class="ok" id="btnName">保 存</button>
+    </div>
+    <div class="hint">手机 App 搜到的是这个名字 + 编号 <b id="sid">—</b>。</div>
+  </div>
+
+  <!-- 状态 -->
+  <div class="card">
+    <h2>现在的状态</h2>
+    <div class="kv">
+      <span>阶段 <b id="phase">—</b></span>
+      <span>模式 <b id="mode">—</b></span>
+      <span>游戏端口 <b id="port">—</b></span>
+      <span>在线 <b id="pcount">0</b> 人</span>
+      <span>观战 <b id="wcount">0</b> 人</span>
+      <span>已运行 <b id="uptime">—</b></span>
+    </div>
+    <div class="plist" id="plist"></div>
+    <div class="row">
+      <button id="btnOpenGame">打开游戏页（自己也要玩的话）</button>
+    </div>
+  </div>
+
+  <!-- 客户端日志（V18.2） -->
+  <div class="card">
+    <h2>客户端日志 <span class="tag">找 bug 用</span>
+      <button class="ghost" id="btnLogRefresh" style="margin-left:auto">刷 新</button>
+    </h2>
+    <div class="hint">
+      朋友那边连不上 / 卡住 / 转不动？让他点游戏页顶上的「<b>日志</b>」→「<b>发给房主</b>」，
+      他那份操作记录就出现在这里（按时间记着他按过什么、服务器回了什么）。<br>
+      <span style="color:#7d7568">只留最近 30 份 · 里面<b>没有地址、没有房间码</b>。</span>
+    </div>
+    <div class="plist" id="logList" style="margin-top:10px"></div>
+    <textarea id="logBody" readonly spellcheck="false"
+      style="display:none;width:100%;height:44vh;min-height:200px;margin-top:10px;
+             background:#0a0910;color:#c9c4ba;border:1px solid #2e2a37;border-radius:9px;
+             padding:10px;font-size:11.5px;line-height:1.55;
+             font-family:ui-monospace,Consolas,monospace;resize:vertical"></textarea>
+    <div class="row" id="logRow" style="display:none;margin-top:10px">
+      <button class="ghost" id="btnLogCopy">复制全文</button>
+      <button class="ghost" id="btnLogDownload">存成文件</button>
+    </div>
+    <div class="hint" id="logHint"></div>
+  </div>
+
+  <!-- 规则改写 -->
+  <div class="card">
+    <h2>改规则 <span class="tag">进阶 · 下一局生效</span>
+      <button class="ghost" id="btnRulesToggle" style="margin-left:auto">展 开</button>
+    </h2>
+    <div id="rulesBody" style="display:none">
+
+      <div class="grp">
+        <div class="grp-t">转盘概率 <span class="muted">（联机模式的固定概率；五项之和必须是 100）</span></div>
+        <div class="grid g5">
+          <label>扣血 A<input id="p0" type="number" min="0" max="100"></label>
+          <label>回血<input id="p1" type="number" min="0" max="100"></label>
+          <label>扣血 B<input id="p2" type="number" min="0" max="100"></label>
+          <label>回血小<input id="p3" type="number" min="0" max="100"></label>
+          <label>金币<input id="p4" type="number" min="0" max="100"></label>
+        </div>
+        <div class="hint" id="probSum"></div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">金币</div>
+        <div class="grid g3">
+          <label>金币格收益<input id="goldPerPick" type="number" min="0"></label>
+          <label>每持有 N 金<input id="interestPer" type="number" min="1"></label>
+          <label>额外得 +M 金<input id="interestGain" type="number" min="0"></label>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">道具</div>
+        <div class="grid g4">
+          <label>护符 售价<input id="charmPrice" type="number" min="0"></label>
+          <label>药水 售价<input id="potionPrice" type="number" min="0"></label>
+          <label>减少转数 售价<input id="rewindPrice" type="number" min="0"></label>
+          <label>香蕉皮 售价<input id="bananaPrice" type="number" min="0"></label>
+        </div>
+        <div class="grid g3" style="margin-top:8px">
+          <label>减少转数 限购次数<input id="rewindLimit" type="number" min="0"></label>
+          <label>每次减几转<input id="rewindStep" type="number" min="0"></label>
+          <label>香蕉皮 生效转数<input id="bananaSpins" type="number" min="0"></label>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">每个模式</div>
+        <div class="grid g4">
+          <label>死亡轮盘 血上限<input id="soloHp" type="number" min="1" max="99"></label>
+          <label>对赌轮盘 血上限<input id="turnHp" type="number" min="1" max="99"></label>
+          <label>死神追猎 血上限<input id="raceHp" type="number" min="1" max="99"></label>
+          <label>死神追猎 目标转数<input id="raceTarget" type="number" min="1"></label>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="ok" id="btnRules">保 存 规 则</button>
+        <button class="ghost" id="btnRulesReset">恢复默认</button>
+        <span class="badge" id="rulesBadge"></span>
+      </div>
+      <div class="hint err" id="rulesErr" style="display:none"></div>
+      <div class="hint">
+        改动<b>下一局生效</b>，已经在局中的人不受影响；房间里的所有人都会看到你改过的规则。
+        <br>
+        <span class="warn-i">⚠ 概率之和必须正好是 100，血上限 1–99 —— 填错会整条被拒，房间继续用上一套能跑的规则。</span>
+        <br>
+        <span class="warn-i">⚠ 利息「本金封顶」和「71 转后涨价」是防僵局的两条命根子，这里不开放改 ——
+          动它们可能让对赌轮盘永远打不完。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">
+    这个页面走的是<b>只监听 127.0.0.1 的独立端口</b>，不在穿透的转发链路上 ——
+    所以即便你把网址发了出去，别人也打不开它。游戏页（<span id="gameUrl2">—</span>）才是给所有人的。
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var info = null;
+
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 1600);
+  }
+
+  function fmtUptime(ms) {
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return (h ? h + ' 小时 ' : '') + (m ? m + ' 分 ' : '') + (s % 60) + ' 秒';
+  }
+
+  function render(d) {
+    info = d;
+    $('adminPort').textContent = d.adminPort;
+    $('port').textContent = d.port;
+    $('gameUrl2').textContent = 'http://localhost:' + d.port;
+    $('sid').textContent = d.serverId || '—';
+    $('phase').textContent = d.phase === 'playing' ? '对局中' : '大厅中';
+    $('mode').textContent = d.modeLabel || d.mode || '—';
+    $('pcount').textContent = (d.players || []).length;
+    $('wcount').textContent = d.watchers || 0;
+    $('uptime').textContent = fmtUptime(d.uptimeMs || 0);
+
+    /* 网址 */
+    var u = d.tunnelUrl || '';
+    if (u) {
+      $('url').textContent = u;
+      $('url').className = 'u';
+      $('urlHint').textContent = '把这个发给外地朋友：他用浏览器打开，点「本页就是这个服务器」就进房间。';
+      $('urlHint').className = 'hint';
+      $('tunnelHelp').style.display = 'none';
+    } else {
+      $('url').textContent = d.tunnelOn ? '穿透开着，正在等网址…' : '没检测到穿透隧道（不影响同一个 WiFi 下的玩法）';
+      $('url').className = 'u none';
+      $('urlHint').textContent = '同一个 WiFi / 校园网的朋友不用管这个 —— 他们打开游戏就能搜到你。';
+      $('urlHint').className = 'hint';
+      $('tunnelHelp').style.display = d.tunnelOn ? 'none' : '';
+    }
+
+    /* 穿透开关状态 */
+    var tb = $('tunBadge');
+    tb.textContent = d.tunnelOn ? (u ? '已开启 · 有网址' : '已开启 · 等网址') : '未开启';
+    tb.className = 'badge' + (d.tunnelOn ? ' on' : '');
+    $('urlHintTun').textContent = d.tunnelErr
+      ? '⚠ 穿透进程报错：' + d.tunnelErr
+      : (d.tunnelOn ? '穿透已开启，玩完记得点「关穿透」。' : '');
+    $('urlHintTun').className = d.tunnelErr ? 'hint err' : 'hint';
+
+    /* cpolar 位置 */
+    if (document.activeElement !== $('tunBin')) $('tunBin').value = d.tunnelBin || '';
+    $('binHint').textContent = d.tunnelBin
+      ? '已记住这个位置，以后开穿透直接用。'
+      : (d.tunnelAutoFound ? '自动找到了，点「开穿透」就行。' : '没自动找到。点「浏览…」选一次 cpolar.exe（选完会记住）。');
+    $('binHint').className = d.tunnelBin || d.tunnelAutoFound ? 'hint' : 'hint warn';
+    $('btnTunStart').disabled = !!d.tunnelOn;
+    $('btnTunStop').disabled = !d.tunnelOn;
+
+    /* 房间码 / 名称：只在用户没在改的时候覆盖，免得打字被打断 */
+    if (document.activeElement !== $('code')) $('code').value = d.code || '';
+    if (document.activeElement !== $('name')) $('name').value = d.name || '';
+    $('codeHint').textContent = d.code
+      ? '已启用。改码不影响已经在房里的人 —— 只挡新加入的。'
+      : '现在谁都能进。开着穿透（网址发给别人了）的话，建议设一个。';
+    $('codeHint').className = d.code ? 'hint' : 'hint warn';
+
+    /* 名单 */
+    var box = $('plist');
+    box.innerHTML = '';
+    if (!d.players || !d.players.length) {
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = '房间里还没有人。';
+      box.appendChild(e);
+    } else {
+      d.players.forEach(function (p) {
+        var c = document.createElement('div');
+        c.className = 'pchip' + (p.id === d.hostId ? ' me' : '');
+        c.textContent = p.name + (p.id === d.hostId ? '（房主）' : '');
+        box.appendChild(c);
+      });
+    }
+  }
+
+  function load() {
+    return fetch('/api/info').then(function (r) { return r.json(); }).then(render)
+      .catch(function () { /* 服务端刚停，忽略 */ });
+  }
+
+  /* ================= 客户端日志（V18.2）=================
+     玩家在游戏页点「日志 → 发给房主」，那份记录落到服务端磁盘上，这里只看得到。 */
+  var curLogFile = null;
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function fmtTime(ms) {
+    var d = new Date(ms);
+    return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' '
+      + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  function renderLogs(list) {
+    var box = $('logList');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!list || !list.length) {
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = '还没有人发日志过来。';
+      box.appendChild(e);
+      return;
+    }
+    list.forEach(function (it) {
+      var c = document.createElement('div');
+      c.className = 'pchip' + (it.file === curLogFile ? ' me' : '');
+      c.style.cursor = 'pointer';
+      c.textContent = it.name + ' · ' + fmtTime(it.mtime) + ' · ' + Math.max(1, Math.round(it.size / 1024)) + ' KB';
+      c.onclick = function () { openLog(it.file); };
+      box.appendChild(c);
+    });
+  }
+  function openLog(f) {
+    curLogFile = f;
+    fetch('/api/clientlog?f=' + encodeURIComponent(f))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { toast(d.err || '读不出来'); return; }
+        var ta = $('logBody');
+        if (ta) { ta.value = d.text; ta.style.display = ''; }
+        var row = $('logRow'); if (row) row.style.display = '';
+        var h = $('logHint'); if (h) h.textContent = '正在看：' + f + '（再点一次列表里的名字可以换一份）';
+        loadLogs();
+      })
+      .catch(function () { toast('连不上服务端'); });
+  }
+  function loadLogs() {
+    return fetch('/api/clientlogs').then(function (r) { return r.json(); })
+      .then(function (d) { renderLogs(d.logs); })
+      .catch(function () { /* 服务端刚停，忽略 */ });
+  }
+
+  /* ================= 规则改写 =================
+     前端这份 DEFAULTS 必须和 engine.js 里的内置值一致：
+     服务端只在「房主改过」时才存一份差量（rulesOverride），没改过就是 null，
+     所以默认值得由页面自己带一份来显示。 */
+  var DEFAULTS = {
+    num: { GOLD_PER_PICK: 50, INTEREST_PER: 10, INTEREST_GAIN: 1, PROBS_FIXED: [30, 30, 10, 10, 20] },
+    shop: { charm: { price: 100 }, potion: { price: 300 },
+            rewind: { price: 200, limit: 3, step: 5 }, banana: { price: 150, spins: 5 } },
+    presets: { solo: { hpMax: 7 }, turn: { hpMax: 15 }, race: { hpMax: 10, target: 100 } },
+  };
+  var RULE_INPUTS = ['p0', 'p1', 'p2', 'p3', 'p4', 'goldPerPick', 'interestPer', 'interestGain',
+    'charmPrice', 'potionPrice', 'rewindPrice', 'rewindLimit', 'rewindStep', 'bananaPrice', 'bananaSpins',
+    'soloHp', 'turnHp', 'raceHp', 'raceTarget'];
+  var curRules = null;      // 服务端当前生效的自定义规则；null = 用默认
+  var rulesDirty = false;   // 玩家改过框了 —— 别再拿服务端的值去冲掉他打的字
+
+  function numOf(id) { return Number($(id).value); }
+
+  function merged() {
+    var o = JSON.parse(JSON.stringify(DEFAULTS));
+    var c = curRules || {};
+    ['num', 'shop', 'presets'].forEach(function (sec) {
+      Object.keys(c[sec] || {}).forEach(function (k) {
+        o[sec][k] = Object.assign(o[sec][k] || {}, c[sec][k]);
+      });
+    });
+    return o;
+  }
+
+  function fillRules() {
+    var m = merged();
+    for (var i = 0; i < 5; i++) $('p' + i).value = m.num.PROBS_FIXED[i];
+    $('goldPerPick').value = m.num.GOLD_PER_PICK;
+    $('interestPer').value = m.num.INTEREST_PER;
+    $('interestGain').value = m.num.INTEREST_GAIN;
+    $('charmPrice').value = m.shop.charm.price;
+    $('potionPrice').value = m.shop.potion.price;
+    $('rewindPrice').value = m.shop.rewind.price;
+    $('rewindLimit').value = m.shop.rewind.limit;
+    $('rewindStep').value = m.shop.rewind.step;
+    $('bananaPrice').value = m.shop.banana.price;
+    $('bananaSpins').value = m.shop.banana.spins;
+    $('soloHp').value = m.presets.solo.hpMax;
+    $('turnHp').value = m.presets.turn.hpMax;
+    $('raceHp').value = m.presets.race.hpMax;
+    $('raceTarget').value = m.presets.race.target;
+    checkProbs();
+  }
+
+  function collectRules() {
+    return {
+      num: {
+        GOLD_PER_PICK: numOf('goldPerPick'), INTEREST_PER: numOf('interestPer'),
+        INTEREST_GAIN: numOf('interestGain'),
+        PROBS_FIXED: [numOf('p0'), numOf('p1'), numOf('p2'), numOf('p3'), numOf('p4')],
+      },
+      shop: {
+        charm: { price: numOf('charmPrice') }, potion: { price: numOf('potionPrice') },
+        rewind: { price: numOf('rewindPrice'), limit: numOf('rewindLimit'), step: numOf('rewindStep') },
+        banana: { price: numOf('bananaPrice'), spins: numOf('bananaSpins') },
+      },
+      presets: {
+        solo: { hpMax: numOf('soloHp') }, turn: { hpMax: numOf('turnHp') },
+        race: { hpMax: numOf('raceHp'), target: numOf('raceTarget') },
+      },
+    };
+  }
+
+  /* 护栏：概率之和必须正好 100。服务端还会再判一次（手改坏的请求也挡得住），
+     这里先判是为了让房主当场看见，而不是等保存失败了才知道。 */
+  function checkProbs() {
+    var s = 0;
+    for (var i = 0; i < 5; i++) s += (Number($('p' + i).value) || 0);
+    var good = Math.abs(s - 100) < 0.01;
+    $('probSum').innerHTML = good ? '合计 <b>100%</b> ✓'
+      : '合计 <b>' + (Math.round(s * 100) / 100) + '%</b> —— 必须正好是 100';
+    $('probSum').className = good ? 'hint' : 'hint err';
+    $('btnRules').disabled = !good;
+    $('btnRules').style.opacity = good ? '' : '.45';
+    return good;
+  }
+
+  function showRulesErr(msg) {
+    var e = $('rulesErr');
+    if (!msg) { e.style.display = 'none'; e.textContent = ''; return; }
+    e.style.display = '';
+    e.textContent = msg;
+  }
+
+  function updateRulesBadge() {
+    var b = $('rulesBadge');
+    b.textContent = curRules ? '已改成自定义规则' : '现在是默认规则';
+    b.className = 'badge' + (curRules ? ' on' : '');
+  }
+
+  function postRules(rules) {
+    return fetch('/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules: rules }),
+    }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, d: d || {} }; });
+    });
+  }
+
+  function loadRules() {
+    return fetch('/api/rules').then(function (r) { return r.json(); }).then(function (d) {
+      curRules = d && d.rules ? d.rules : null;
+      if (!rulesDirty) fillRules();
+      updateRulesBadge();
+    }).catch(function () { /* 服务端刚停，忽略 */ });
+  }
+
+  $('btnRulesToggle').onclick = function () {
+    var b = $('rulesBody'), open = b.style.display !== 'none';
+    b.style.display = open ? 'none' : '';
+    $('btnRulesToggle').textContent = open ? '展 开' : '收 起';
+    if (!open) loadRules();
+  };
+  RULE_INPUTS.forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      rulesDirty = true;
+      if (id.charAt(0) === 'p' && id.length === 2) checkProbs();
+    });
+  });
+  $('btnRules').onclick = function () {
+    if (!checkProbs()) { showRulesErr('概率之和不是 100，改完再保存'); return; }
+    postRules(collectRules()).then(function (x) {
+      if (x.status !== 200 || !x.d.ok) {
+        showRulesErr('服务端拒了：' + ((x.d.errors || []).join('；') || x.d.err || '未知原因'));
+        return;
+      }
+      curRules = x.d.rules || null;
+      rulesDirty = false;
+      fillRules();            /* 回填服务端钳制/规范化过的值 */
+      updateRulesBadge();
+      showRulesErr('');
+      toast('规则已保存，下一局生效');
+    }).catch(function () { showRulesErr('连不上服务端'); });
+  };
+  $('btnRulesReset').onclick = function () {
+    postRules(null).then(function (x) {
+      if (x.status !== 200 || !x.d.ok) { toast('恢复失败'); return; }
+      curRules = null; rulesDirty = false;
+      fillRules(); updateRulesBadge(); showRulesErr('');
+      toast('已恢复默认规则');
+    }).catch(function () { showRulesErr('连不上服务端'); });
+  };
+
+  function save(field, value) {
+    var body = {};
+    body[field] = value;
+    return fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.ok) { render(d); toast('已保存'); }
+      else toast('保存失败：' + ((d && d.err) || '未知错误'));
+    }).catch(function () { toast('连不上服务端'); });
+  }
+
+  function copy(text) {
+    if (!text) { toast('还没有网址'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast('网址已复制'); },
+        function () { fallbackCopy(text); });
+    } else fallbackCopy(text);
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('网址已复制'); }
+    catch (e) { toast('复制失败，手动选中吧'); }
+    document.body.removeChild(ta);
+  }
+
+  $('btnCopy').onclick = function () { copy(info && info.tunnelUrl); };
+  $('btnRefresh').onclick = function () {
+    toast('正在检测…');
+    fetch('/api/tunnel', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { render(d); toast(d.tunnelUrl ? '拿到了' : '还是没检测到隧道'); });
+  };
+
+  /* ---------- 穿透：开 / 关 / 选程序 ---------- */
+  function tun(action) {
+    return fetch('/api/tunnel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action }),
+    }).then(function (r) { return r.json(); });
+  }
+  $('btnTunStart').onclick = function () {
+    toast('正在开穿透…（最多等十几秒）');
+    tun('start').then(function (d) {
+      render(d);
+      if (d.tunnelUrl) toast('穿透已开，网址拿到了');
+      else if (d.tunnelBin) toast('穿透已启动，网址还在路上 —— 再等几秒');
+      else toast('没找到 cpolar.exe，先选一下它的位置');
+    }).catch(function () { toast('连不上服务端'); });
+  };
+  $('btnTunStop').onclick = function () {
+    tun('stop').then(function (d) { render(d); toast('穿透已关闭'); })
+      .catch(function () { toast('连不上服务端'); });
+  };
+  function saveBin(p) {
+    fetch('/api/tunnel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'refresh', bin: p }),
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok === false) { toast(d.err || '这个路径不对'); return; }
+      render(d); toast('已记住 cpolar 的位置');
+    }).catch(function () { toast('连不上服务端'); });
+  }
+  $('btnPickBin').onclick = function () {
+    toast('请在弹出的小窗口里选 cpolar.exe');
+    fetch('/api/pick-cpolar', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.picked === false) { toast('没选（取消了）'); return; }
+        render(d); toast('已记住 cpolar 的位置');
+      })
+      .catch(function () { toast('连不上服务端'); });
+  };
+  $('btnAutoBin').onclick = function () { saveBin($('tunBin').value.trim()); };
+  $('tunBin').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') saveBin($('tunBin').value.trim());
+  });
+  $('btnCode').onclick = function () { save('code', $('code').value.trim()); };
+  $('btnName').onclick = function () { save('name', $('name').value.trim()); };
+  $('code').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') save('code', $('code').value.trim());
+  });
+  $('name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') save('name', $('name').value.trim());
+  });
+  $('btnOpenGame').onclick = function () {
+    window.open('http://127.0.0.1:' + (info ? info.port : 8080) + '/client.html', '_blank');
+  };
+
+  $('btnLogRefresh').onclick = function () { loadLogs(); toast('已刷新'); };
+  $('btnLogCopy').onclick = function () {
+    var ta = $('logBody');
+    if (!ta || !ta.value) { toast('还没选一份日志'); return; }
+    var ok = false;
+    try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); ok = document.execCommand('copy'); }
+    catch (e) { ok = false; }
+    if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () { toast('已复制'); }, function () { toast('复制失败，手动选中复制吧'); });
+      return;
+    }
+    toast(ok ? '已复制' : '复制失败，手动选中复制吧');
+  };
+  $('btnLogDownload').onclick = function () {
+    var ta = $('logBody');
+    if (!ta || !ta.value) { toast('还没选一份日志'); return; }
+    try {
+      var blob = new Blob([ta.value], { type: 'text/plain;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (curLogFile || 'clientlog').replace(/\.txt$/, '') + '-客户端日志.txt';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (e) {} }, 1500);
+      toast('已存成文件');
+    } catch (e) { toast('这台浏览器不支持存文件'); }
+  };
+
+  load();
+  loadLogs();
+  loadRules();   /* 规则卡片默认收起，但先把值取回来 —— 一展开就是最新的 */
+  setInterval(function () { load(); loadRules(); }, 3000);
+  /* 日志列表刷得慢一点：它不常变，而且每刷一次都要翻一遍目录 */
+  setInterval(function () { loadLogs(); }, 6000);
+})();
+</script>
+</body>
+</html>
