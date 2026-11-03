@@ -1,0 +1,41 @@
+# ---- 运行时数据（含重连 token，绝不入库） ----
+state.json
+*.state.json
+rules.json
+clientlogs/
+
+# ---- 打包产物（构建生成，不入库） ----
+build/sea-bundle.js
+build/sea-bundle-client.js
+build/sea-prep.blob
+build/sea-prep-client.blob
+build/sea-config.json
+build/sea-config-client.json
+build/node_modules/
+build/*.exe
+build/*.apk
+*.exe
+*.apk
+*.blob
+
+# ---- 密钥 ----
+build/debug.keystore
+*.keystore
+*.jks
+*.p12
+*.pem
+
+# ---- AI 会话工作区（个人过程记录，不属于项目代码） ----
+.workbuddy/
+
+# ---- 系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# ---- 临时排障脚手架 ----
+_*.txt
+*.tmp
+V18DEBUG*
