@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  生死转盘 · 手机版（安卓壳）
+
+  这个壳只做四件事：
+    1. 用 WebView 加载 App 内置的 www/client.html（离线也能起界面）
+    2. 允许明文 http/ws —— 局域网联机就是 ws://192.168.x.x:8080，
+       安卓 9+ 默认禁明文，不放开这一条连不上服务器
+    3. 把「座位凭证」存进 App 私有目录（SharedPreferences），
+       卸载才丢；file:// 页面里的 localStorage 不可靠
+    4. 全屏沉浸，屏蔽地址栏
+
+  游戏规则一行都不在这里，全在 engine.js / server.js。
+  注意：XML 注释里不能出现连续两个减号，所以这里不用横线分隔。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.shengsizhuanpan.app"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
