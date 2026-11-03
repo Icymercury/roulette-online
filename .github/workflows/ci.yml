@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 自动化测试 (${{ matrix.name }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: engine
+            script: engine-test.js
+          - name: engine-modes
+            script: engine-modes-test.js
+          - name: client-solo
+            script: client-solo-test.js
+          - name: online
+            script: test-online.js
+          - name: client-mp
+            script: client-mp-test.js
+          - name: discovery
+            script: discovery-test.js
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 运行 ${{ matrix.script }}
+        run: node ${{ matrix.script }}
